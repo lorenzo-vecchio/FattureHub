@@ -2,6 +2,7 @@
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
   import { X } from 'lucide-svelte';
+  import ModeToggle from './ModeToggle.svelte';
 
   let { fattureCount, activeFilters, onclear }: {
     fattureCount: number;
@@ -21,7 +22,8 @@
         <Badge>{activeFilters} filtri attivi</Badge>
       {/if}
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-5">
+    <ModeToggle />
       {#if fattureCount > 0}
         <Button variant="ghost" size="sm" onclick={onclear}>
           <X class="mr-1.5 h-3.5 w-3.5" />
