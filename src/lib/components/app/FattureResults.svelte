@@ -6,6 +6,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import * as Card from '$lib/components/ui/card';
   import { Upload, Download, Funnel, RotateCcw, FolderOpen } from 'lucide-svelte';
+  import FatturaDialog from './FatturaDialog.svelte';
 
   const fmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
 
@@ -17,6 +18,14 @@
   } = $props();
 
   let groupBy = $state<'' | 'cedente' | 'cessionario'>('');
+
+  let selectedFattura = $state<Fattura | null>(null);
+  let dialogOpen = $state(false);
+
+  function openDetail(fat: Fattura) {
+    selectedFattura = fat;
+    dialogOpen = true;
+  }
 
   let totaleImponibile = $derived(filtrate.reduce((a, f) => a + f.imponibile, 0));
   let totaleImposta = $derived(filtrate.reduce((a, f) => a + f.imposta, 0));
@@ -103,7 +112,10 @@
     </Card.Root>
   {:else}
     {#each filtrate as fat}
-      <Card.Root class="transition-colors hover:border-foreground/30">
+      <Card.Root
+        class="transition-colors hover:border-foreground/30 cursor-pointer"
+        onclick={() => openDetail(fat)}
+      >
         <Card.Content class="flex items-start justify-between gap-4 py-4">
           <div class="min-w-0 flex-1 space-y-1">
             <div class="flex flex-wrap items-center gap-2">
@@ -166,3 +178,5 @@
   {/if}
 
 </section>
+
+<FatturaDialog fattura={selectedFattura} bind:open={dialogOpen} />

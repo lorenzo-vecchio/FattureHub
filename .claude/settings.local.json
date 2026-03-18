@@ -3,7 +3,8 @@
     "allow": [
       "mcp__ide__getDiagnostics",
       "Bash(npx svelte-kit:*)",
-      "Bash(npx svelte-check:*)"
+      "Bash(npx svelte-check:*)",
+      "Bash(echo \"y\" | npx shadcn-svelte@latest add dialog 2>&1)"
     ]
   }
 }
