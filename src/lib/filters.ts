@@ -1,14 +1,14 @@
 import type { Fattura } from './parser';
+import { cedenteKey, cessionarioKey } from './parser';
 
 export interface Filters {
   // Data
   dataFrom: string;
   dataTo: string;
-  // Fornitore
-  fornitore: string;
-  pivaFornitore: string;
-  // Cliente
-  cliente: string;
+  // Fornitore (cedente) — multi-select dai valori presenti
+  fornitori: string[];
+  // Cliente (cessionario) — multi-select dai valori presenti
+  clienti: string[];
   // Importo
   importoMin: string;
   importoMax: string;
@@ -65,9 +65,12 @@ export const REGIMI_FISCALI = [
 
 export function emptyFilters(): Filters {
   return {
-    dataFrom: '', dataTo: '', fornitore: '', pivaFornitore: '',
-    cliente: '', importoMin: '', importoMax: '', tipoDocumento: [],
-    regimeFiscale: '', numero: '', formatoTrasmissione: '', testoLibero: '',
+    dataFrom: '', dataTo: '',
+    fornitori: [], clienti: [],
+    importoMin: '', importoMax: '',
+    tipoDocumento: [],
+    regimeFiscale: '', numero: '',
+    formatoTrasmissione: '', testoLibero: '',
   };
 }
 
@@ -76,15 +79,8 @@ export function applyFilters(fatture: Fattura[], f: Filters): Fattura[] {
     if (f.dataFrom && fat.data < f.dataFrom) return false;
     if (f.dataTo && fat.data > f.dataTo) return false;
 
-    if (f.fornitore) {
-      const label = (fat.cedenteDenominazione + fat.cedenteNome + fat.cedenteCognome).toLowerCase();
-      if (!label.includes(f.fornitore.toLowerCase())) return false;
-    }
-    if (f.pivaFornitore && !fat.cedentePiva.includes(f.pivaFornitore)) return false;
-    if (f.cliente) {
-      const label = fat.cessionarioDenominazione.toLowerCase();
-      if (!label.includes(f.cliente.toLowerCase())) return false;
-    }
+    if (f.fornitori.length > 0 && !f.fornitori.includes(cedenteKey(fat))) return false;
+    if (f.clienti.length > 0 && !f.clienti.includes(cessionarioKey(fat))) return false;
 
     if (f.importoMin && fat.importoTotale < parseFloat(f.importoMin)) return false;
     if (f.importoMax && fat.importoTotale > parseFloat(f.importoMax)) return false;
@@ -105,7 +101,7 @@ export function applyFilters(fatture: Fattura[], f: Filters): Fattura[] {
 }
 
 export function countActiveFilters(f: Filters): number {
-  return Object.entries(f).filter(([k, v]) =>
+  return Object.values(f).filter(v =>
     Array.isArray(v) ? v.length > 0 : v !== ''
   ).length;
 }

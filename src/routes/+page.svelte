@@ -82,7 +82,7 @@
 
     {#if fatture.length > 0 && !loading}
       <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
-        <FiltersPanel {filters} {activeFilters} onreset={resetFilters} />
+        <FiltersPanel {filters} {fatture} {activeFilters} onreset={resetFilters} />
         <FattureResults
           {filtrate}
           fattureCount={fatture.length}

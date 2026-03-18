@@ -103,3 +103,15 @@ export function cedenteLabel(f: Fattura): string {
     f.cedenteCodFiscale ||
     '—';
 }
+
+export function cedenteKey(f: Fattura): string {
+  return f.cedentePiva || f.cedenteCodFiscale || cedenteLabel(f);
+}
+
+export function cessionarioLabel(f: Fattura): string {
+  return f.cessionarioDenominazione || f.cessionarioPiva || f.cessionarioCodFiscale || '—';
+}
+
+export function cessionarioKey(f: Fattura): string {
+  return f.cessionarioPiva || f.cessionarioCodFiscale || f.cessionarioDenominazione || '?';
+}

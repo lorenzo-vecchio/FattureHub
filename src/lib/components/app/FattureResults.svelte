@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { Fattura } from '$lib/parser';
   import { cedenteLabel } from '$lib/parser';
-  import { downloadZip } from '$lib/zipper';
+  import { downloadZip, downloadZipGrouped } from '$lib/zipper';
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
   import * as Card from '$lib/components/ui/card';
-  import { Upload, Download, Funnel, RotateCcw } from 'lucide-svelte';
+  import { Upload, Download, Funnel, RotateCcw, FolderOpen } from 'lucide-svelte';
 
   const fmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
 
@@ -16,6 +16,8 @@
     onreset: () => void;
   } = $props();
 
+  let groupBy = $state<'' | 'cedente' | 'cessionario'>('');
+
   let totaleImponibile = $derived(filtrate.reduce((a, f) => a + f.imponibile, 0));
   let totaleImposta = $derived(filtrate.reduce((a, f) => a + f.imposta, 0));
   let totaleDocumento = $derived(filtrate.reduce((a, f) => a + f.importoTotale, 0));
@@ -25,16 +27,51 @@
     if (input.files) onaddfile(Array.from(input.files));
     input.value = '';
   }
+
+  function handleDownload() {
+    if (groupBy === '') {
+      downloadZip(filtrate);
+    } else {
+      downloadZipGrouped(filtrate, groupBy);
+    }
+  }
+
+  const groupByLabels = {
+    '': 'Flat',
+    cedente: 'Per fornitore',
+    cessionario: 'Per cliente',
+  } as const;
 </script>
 
 <section class="space-y-3">
 
-  <!-- Toolbar risultati -->
-  <div class="flex items-center justify-between">
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center justify-between gap-2">
     <p class="text-sm text-muted-foreground">
       <span class="font-medium text-foreground">{filtrate.length}</span> risultati su {fattureCount}
     </p>
-    <div class="flex gap-2">
+
+    <div class="flex flex-wrap items-center gap-2">
+
+      <!-- Raggruppamento export -->
+      <div class="flex items-center gap-1">
+        <FolderOpen class="h-3.5 w-3.5 text-muted-foreground" />
+        <span class="text-xs text-muted-foreground">Raggruppa:</span>
+        {#each Object.entries(groupByLabels) as [v, l]}
+          <Button
+            variant={groupBy === v ? 'default' : 'outline'}
+            size="sm"
+            class="h-7 px-2.5 text-xs"
+            onclick={() => (groupBy = v as '' | 'cedente' | 'cessionario')}
+          >
+            {l}
+          </Button>
+        {/each}
+      </div>
+
+      <div class="h-5 w-px bg-border"></div>
+
+      <!-- Aggiungi file -->
       <Button variant="outline" size="sm">
         <label class="cursor-pointer flex flex-row">
           <Upload class="mr-2 h-3.5 w-3.5" />
@@ -42,14 +79,13 @@
           <input type="file" class="sr-only" multiple accept=".xml,.zip" onchange={handleFileInput} />
         </label>
       </Button>
-      <Button
-        size="sm"
-        disabled={filtrate.length === 0}
-        onclick={() => downloadZip(filtrate)}
-      >
+
+      <!-- Download -->
+      <Button size="sm" disabled={filtrate.length === 0} onclick={handleDownload}>
         <Download class="mr-2 h-3.5 w-3.5" />
         Scarica ZIP ({filtrate.length})
       </Button>
+
     </div>
   </div>
 
@@ -120,9 +156,9 @@
             <p class="text-xs opacity-70">Totale</p>
             <p class="text-sm font-semibold">{fmt.format(totaleDocumento)}</p>
           </div>
-          <Button variant="secondary" size="sm" onclick={() => downloadZip(filtrate)}>
+          <Button variant="secondary" size="sm" onclick={handleDownload}>
             <Download class="mr-2 h-3.5 w-3.5" />
-            Scarica ZIP
+            {groupBy === '' ? 'Scarica ZIP' : groupByLabels[groupBy]}
           </Button>
         </div>
       </Card.Content>
