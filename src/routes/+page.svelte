@@ -19,6 +19,12 @@
   let filtrate = $derived(applyFilters(fatture, filters));
   let activeFilters = $derived(countActiveFilters(filters));
 
+  // Filtra file di metadati macOS (Apple Double: ._xxx, cartella __MACOSX)
+  function isMacMeta(path: string): boolean {
+    const name = path.split('/').pop() ?? path;
+    return name.startsWith('._') || path.includes('__MACOSX');
+  }
+
   async function processFiles(files: File[]) {
     loading = true;
     errors = [];
@@ -28,12 +34,12 @@
       if (file.name.endsWith('.zip')) {
         const zip = await JSZip.loadAsync(file);
         for (const [path, entry] of Object.entries(zip.files)) {
-          if (!entry.dir && path.toLowerCase().endsWith('.xml')) {
+          if (!entry.dir && path.toLowerCase().endsWith('.xml') && !isMacMeta(path)) {
             const text = await entry.async('string');
             xmlFiles.push({ name: path.split('/').pop() ?? path, text });
           }
         }
-      } else if (file.name.toLowerCase().endsWith('.xml')) {
+      } else if (file.name.toLowerCase().endsWith('.xml') && !isMacMeta(file.name)) {
         xmlFiles.push({ name: file.name, text: await file.text() });
       }
     }

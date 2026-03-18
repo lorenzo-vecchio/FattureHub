@@ -7,18 +7,60 @@
 
   let dragOver = $state(false);
 
+  // --- File System Entry API: legge ricorsivamente file e cartelle ---
+
+  async function readEntry(entry: FileSystemEntry): Promise<File[]> {
+    if (entry.isFile) {
+      return new Promise<File[]>((resolve) => {
+        (entry as FileSystemFileEntry).file(
+          (f) => resolve([f]),
+          () => resolve([])
+        );
+      });
+    }
+    if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader();
+      const subEntries = await drainReader(reader);
+      const nested = await Promise.all(subEntries.map(readEntry));
+      return nested.flat();
+    }
+    return [];
+  }
+
+  // readEntries restituisce al massimo 100 voci per chiamata — cicliamo finché vuoto
+  async function drainReader(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+    const all: FileSystemEntry[] = [];
+    for (;;) {
+      const batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+        reader.readEntries(resolve, reject)
+      );
+      if (!batch.length) break;
+      all.push(...batch);
+    }
+    return all;
+  }
+
   function handleInput(e: Event) {
     const input = e.target as HTMLInputElement;
     if (input.files) onfiles(Array.from(input.files));
     input.value = '';
   }
 
-  function onDrop(e: DragEvent) {
+  async function onDrop(e: DragEvent) {
     e.preventDefault();
     dragOver = false;
-    const files = Array.from(e.dataTransfer?.items ?? [])
-      .map(i => i.getAsFile())
-      .filter(Boolean) as File[];
+    if (!e.dataTransfer?.items?.length) return;
+
+    const nested = await Promise.all(
+      Array.from(e.dataTransfer.items).map((item) => {
+        const entry = item.webkitGetAsEntry();
+        if (entry) return readEntry(entry);
+        const f = item.getAsFile();
+        return Promise.resolve(f ? [f] : []);
+      })
+    );
+
+    const files = nested.flat();
     if (files.length) onfiles(files);
   }
 </script>
