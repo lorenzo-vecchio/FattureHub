@@ -1,13 +1,16 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
-  import { X } from 'lucide-svelte';
+  import { X, FolderArchive } from 'lucide-svelte';
   import ModeToggle from './ModeToggle.svelte';
 
-  let { fattureCount, activeFilters, onclear }: {
+  let { fattureCount, activeFilters, isDirty, currentProjectName, onclear, onopenprojects }: {
     fattureCount: number;
     activeFilters: number;
+    isDirty: boolean;
+    currentProjectName: string | null;
     onclear: () => void;
+    onopenprojects: () => void;
   } = $props();
 </script>
 
@@ -15,19 +18,36 @@
   <div class="mx-auto max-w-7xl flex h-14 items-center justify-between px-6">
     <div class="flex items-center gap-3">
       <h1 class="text-base font-semibold">Filtro Fatture Elettroniche</h1>
+
       {#if fattureCount > 0}
         <Badge variant="secondary">{fattureCount} caricate</Badge>
       {/if}
       {#if activeFilters > 0}
         <Badge>{activeFilters} filtri attivi</Badge>
       {/if}
+
+      {#if currentProjectName || (isDirty && fattureCount > 0)}
+        <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {#if isDirty}
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0"></span>
+          {/if}
+          <span class="max-w-[200px] truncate">
+            {currentProjectName ?? 'Non salvato'}
+          </span>
+        </div>
+      {/if}
     </div>
-    <div class="flex items-center gap-5">
-    <ModeToggle />
+
+    <div class="flex items-center gap-2">
+      <Button variant="ghost" size="sm" onclick={onopenprojects}>
+        <FolderArchive class="mr-1.5 h-3.5 w-3.5" />
+        Progetti
+      </Button>
+      <ModeToggle />
       {#if fattureCount > 0}
         <Button variant="ghost" size="sm" onclick={onclear}>
           <X class="mr-1.5 h-3.5 w-3.5" />
-          Svuota tutto
+          Chiudi progetto
         </Button>
       {/if}
     </div>

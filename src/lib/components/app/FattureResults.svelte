@@ -5,16 +5,19 @@
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
   import * as Card from '$lib/components/ui/card';
-  import { Upload, Download, Funnel, RotateCcw, FolderOpen } from 'lucide-svelte';
+  import { Upload, Download, Funnel, RotateCcw, FolderOpen, Save } from 'lucide-svelte';
   import FatturaDialog from './FatturaDialog.svelte';
 
   const fmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
 
-  let { filtrate, fattureCount, onaddfile, onreset }: {
+  let { filtrate, fattureCount, isDirty, currentProjectName, onaddfile, onreset, onsave }: {
     filtrate: Fattura[];
     fattureCount: number;
+    isDirty: boolean;
+    currentProjectName: string | null;
     onaddfile: (files: File[]) => void;
     onreset: () => void;
+    onsave: () => void;
   } = $props();
 
   let groupBy = $state<'' | 'cedente' | 'cessionario'>('');
@@ -37,7 +40,7 @@
     input.value = '';
   }
 
-  function handleDownload() {
+  function handleExport() {
     if (groupBy === '') {
       downloadZip(filtrate);
     } else {
@@ -89,10 +92,20 @@
         </label>
       </Button>
 
-      <!-- Download -->
-      <Button size="sm" disabled={filtrate.length === 0} onclick={handleDownload}>
+      <!-- Salva progetto -->
+      <Button variant={isDirty && currentProjectName ? 'default' : 'outline'} size="sm" onclick={onsave}>
+        {#if isDirty && currentProjectName}
+          <span class="mr-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0"></span>
+        {:else}
+          <Save class="mr-2 h-3.5 w-3.5" />
+        {/if}
+        {currentProjectName ? 'Salva' : 'Salva progetto'}
+      </Button>
+
+      <!-- Esporta ZIP -->
+      <Button size="sm" disabled={filtrate.length === 0} onclick={handleExport}>
         <Download class="mr-2 h-3.5 w-3.5" />
-        Scarica ZIP ({filtrate.length})
+        Esporta ZIP ({filtrate.length})
       </Button>
 
     </div>
@@ -168,9 +181,9 @@
             <p class="text-xs opacity-70">Totale</p>
             <p class="text-sm font-semibold">{fmt.format(totaleDocumento)}</p>
           </div>
-          <Button variant="secondary" size="sm" onclick={handleDownload}>
+          <Button variant="secondary" size="sm" onclick={handleExport}>
             <Download class="mr-2 h-3.5 w-3.5" />
-            {groupBy === '' ? 'Scarica ZIP' : groupByLabels[groupBy]}
+            {groupBy === '' ? 'Esporta ZIP' : groupByLabels[groupBy]}
           </Button>
         </div>
       </Card.Content>
