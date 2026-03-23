@@ -38,8 +38,9 @@
 
   // Sync macOS close button dot (•) with dirty state
   $effect(() => {
-    import('@tauri-apps/api/window')
-      .then(({ getCurrentWindow }) => (getCurrentWindow() as any).setDocumentEdited?.(isDirty))
+    const dirty = isDirty;
+    import('@tauri-apps/api/core')
+      .then(({ invoke }) => invoke('set_document_edited', { edited: dirty }))
       .catch(() => {});
   });
 
