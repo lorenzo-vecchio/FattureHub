@@ -1,16 +1,16 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
-  import { X, FolderArchive } from 'lucide-svelte';
-  import ModeToggle from './ModeToggle.svelte';
+  import { X, FolderArchive, Settings } from 'lucide-svelte';
 
-  let { fattureCount, activeFilters, isDirty, currentProjectName, onclear, onopenprojects }: {
+  let { fattureCount, activeFilters, isDirty, currentProjectName, onclear, onopenprojects, opensettings }: {
     fattureCount: number;
     activeFilters: number;
     isDirty: boolean;
     currentProjectName: string | null;
     onclear: () => void;
     onopenprojects: () => void;
+    opensettings: () => void;
   } = $props();
 </script>
 
@@ -43,7 +43,9 @@
         <FolderArchive class="mr-1.5 h-3.5 w-3.5" />
         Progetti
       </Button>
-      <ModeToggle />
+      <Button variant="ghost" size="icon" onclick={opensettings} title="Impostazioni">
+        <Settings class="h-4 w-4" />
+      </Button>
       {#if fattureCount > 0}
         <Button variant="ghost" size="sm" onclick={onclear}>
           <X class="mr-1.5 h-3.5 w-3.5" />

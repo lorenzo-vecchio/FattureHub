@@ -14,6 +14,7 @@
   import ProjectsSheet from '$lib/components/app/ProjectsSheet.svelte';
   import SaveProjectDialog from '$lib/components/app/SaveProjectDialog.svelte';
   import UnsavedDialog from '$lib/components/app/UnsavedDialog.svelte';
+  import SettingsSheet from '$lib/components/app/SettingsSheet.svelte';
 
   // ── Core state ────────────────────────────────────────────────────────────
   let fatture = $state<Fattura[]>([]);
@@ -47,6 +48,7 @@
   // ── UI state ──────────────────────────────────────────────────────────────
   let projectsOpen = $state(false);
   let saveDialogOpen = $state(false);
+  let settingsOpen = $state(false);
 
   // Unsaved-changes dialog — shared for window close / clear / open-project
   type PendingAction = { type: 'close' } | { type: 'clear' } | { type: 'open'; project: Project };
@@ -230,6 +232,7 @@
     currentProjectName={currentProject?.name ?? null}
     onclear={handleClearClick}
     onopenprojects={() => (projectsOpen = true)}
+    opensettings={() => (settingsOpen = true)}
   />
 
   <div class="mx-auto max-w-7xl px-6 py-6">
@@ -265,6 +268,7 @@
 </div>
 
 <ProjectsSheet bind:open={projectsOpen} onopen={handleOpenProjectRequest} />
+<SettingsSheet bind:open={settingsOpen} />
 <SaveProjectDialog bind:open={saveDialogOpen} onsave={handleSaveNewProject} />
 <UnsavedDialog
   open={unsavedOpen}
