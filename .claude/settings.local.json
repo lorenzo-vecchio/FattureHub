@@ -4,7 +4,11 @@
       "mcp__ide__getDiagnostics",
       "Bash(npx svelte-kit:*)",
       "Bash(npx svelte-check:*)",
-      "Bash(echo \"y\" | npx shadcn-svelte@latest add dialog 2>&1)"
+      "Bash(echo \"y\" | npx shadcn-svelte@latest add dialog 2>&1)",
+      "Bash(rustc --version && cargo --version 2>&1)",
+      "Bash(tail:*)",
+      "Bash(npx tauri:*)",
+      "Bash(cd /Users/lorenzovecchio/Desktop/REPOSITORY/filtra-fatture/src-tauri && cargo check 2>&1)"
     ]
   }
 }
