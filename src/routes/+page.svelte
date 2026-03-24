@@ -3,7 +3,7 @@
   import { parseXml, type Fattura } from '$lib/parser';
   import { applyFilters, emptyFilters, countActiveFilters } from '$lib/filters';
   import { saveProject, updateProject, type Project } from '$lib/projects';
-  import { loadAiConfig, type AiConfig } from '$lib/ai-config';
+  import { loadAiConfig, defaultAiConfig, type AiConfig } from '$lib/ai-config';
   import JSZip from 'jszip';
 
   import AppHeader from '$lib/components/app/AppHeader.svelte';
@@ -50,13 +50,7 @@
 
   // ── AI state ──────────────────────────────────────────────────────────────
   let isAiRunning = $state(false);
-  let aiConfig = $state<AiConfig>({
-    enabled: false,
-    provider: 'openai',
-    endpoint: '',
-    apiKey: '',
-    model: '',
-  });
+  let aiConfig = $state<AiConfig>({ ...defaultAiConfig });
   let aiOpen = $state(false);
   let aiRunningOpen = $state(false);
 

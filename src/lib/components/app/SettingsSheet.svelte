@@ -6,7 +6,7 @@
   import { Label } from '$lib/components/ui/label';
   import { Separator } from '$lib/components/ui/separator';
   import { Settings, Sun, Moon, Monitor, Check } from 'lucide-svelte';
-  import { loadAiConfig, saveAiConfig, type AiConfig } from '$lib/ai-config';
+  import { loadAiConfig, saveAiConfig, defaultAiConfig, type AiConfig } from '$lib/ai-config';
 
   let {
     open = $bindable(false),
@@ -16,13 +16,7 @@
     onAiConfigChange?: (config: AiConfig) => void;
   } = $props();
 
-  let aiConfig = $state<AiConfig>({
-    enabled: false,
-    provider: 'openai',
-    endpoint: '',
-    apiKey: '',
-    model: '',
-  });
+  let aiConfig = $state<AiConfig>({ ...defaultAiConfig });
 
   function handleOpenChange(v: boolean) {
     open = v;
@@ -158,6 +152,38 @@
                 class="h-7 text-xs"
                 placeholder="gpt-4o"
                 bind:value={aiConfig.model}
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <Label class="text-xs" for="ai-orchestrator-model">Modello Orchestratore</Label>
+              <Input
+                id="ai-orchestrator-model"
+                class="h-7 text-xs"
+                placeholder="Lascia vuoto per usare il modello principale"
+                bind:value={aiConfig.orchestratorModel}
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <Label class="text-xs" for="ai-task-model">Modello Task</Label>
+              <Input
+                id="ai-task-model"
+                class="h-7 text-xs"
+                placeholder="Lascia vuoto per usare il modello principale"
+                bind:value={aiConfig.taskModel}
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <Label class="text-xs" for="ai-context-window">Context Window (token, 0 = illimitato)</Label>
+              <Input
+                id="ai-context-window"
+                type="number"
+                class="h-7 text-xs"
+                placeholder="0"
+                value={aiConfig.contextWindow}
+                oninput={(e) => { aiConfig = { ...aiConfig, contextWindow: parseInt(e.currentTarget.value) || 0 }; }}
               />
             </div>
 

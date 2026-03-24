@@ -3,12 +3,14 @@
   import * as Dialog from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
   import { Separator } from '$lib/components/ui/separator';
-  import { Sparkles, Loader, Save, Trash2, ChevronRight } from 'lucide-svelte';
+  import { Sparkles, Loader, Save, Trash2, ChevronRight, Send, Download } from 'lucide-svelte';
+  import type { ModelMessage } from 'ai';
   import type { Fattura } from '$lib/parser';
   import type { AiConfig } from '$lib/ai-config';
   import type { Report } from '$lib/ai-reports';
   import { saveReport, loadReports, deleteReport } from '$lib/ai-reports';
   import { runAiAgent } from '$lib/ai-agent';
+  import { exportReportToDocx } from '$lib/export-docx';
   import ReportView from './ReportView.svelte';
 
   let {
@@ -36,6 +38,10 @@
   let viewingReport = $state<Report | null>(null);
   let errorMsg = $state<string | null>(null);
 
+  let conversationMessages = $state<ModelMessage[]>([]);
+  let refinementPrompt = $state('');
+  let refining = $state(false);
+
   function handleOpenChange(v: boolean) {
     open = v;
     if (v && projectId) void loadSaved();
@@ -53,9 +59,10 @@
     progressSteps = [];
     currentReport = null;
     errorMsg = null;
+    conversationMessages = [];
 
     try {
-      const report = await runAiAgent({
+      const { report, messages } = await runAiAgent({
         prompt,
         fatture,
         config,
@@ -63,12 +70,49 @@
         onProgress: (msg) => { progressSteps = [...progressSteps, msg]; },
       });
       currentReport = report;
+      conversationMessages = messages;
     } catch (e) {
       errorMsg = String(e);
     } finally {
       running = false;
       onrunningChange(false);
     }
+  }
+
+  async function handleRefine() {
+    if (!refinementPrompt.trim() || !projectId || refining) return;
+    refining = true;
+    onrunningChange(true);
+    progressSteps = [];
+    errorMsg = null;
+
+    try {
+      const { report, messages } = await runAiAgent({
+        prompt: refinementPrompt,
+        fatture,
+        config,
+        projectId,
+        onProgress: (msg) => { progressSteps = [...progressSteps, msg]; },
+        conversationMessages,
+      });
+      currentReport = report;
+      conversationMessages = messages;
+      refinementPrompt = '';
+    } catch (e) {
+      errorMsg = String(e);
+    } finally {
+      refining = false;
+      onrunningChange(false);
+    }
+  }
+
+  function handleNewAnalysis() {
+    currentReport = null;
+    conversationMessages = [];
+    refinementPrompt = '';
+    progressSteps = [];
+    errorMsg = null;
+    prompt = '';
   }
 
   async function handleSave() {
@@ -78,6 +122,7 @@
     currentReport = null;
     prompt = '';
     progressSteps = [];
+    conversationMessages = [];
     tab = 'saved';
   }
 
@@ -129,7 +174,7 @@
         </button>
       </div>
 
-      <!-- Scrollable content — flex-1 + min-h-0 so it shrinks inside the flex column -->
+      <!-- Scrollable content -->
       <div class="flex-1 min-h-0 overflow-y-auto">
         {#if tab === 'new'}
           <div class="space-y-4 px-6 py-5">
@@ -164,7 +209,7 @@
                       {step}
                     </p>
                   {/each}
-                  {#if running}
+                  {#if running || refining}
                     <p class="text-xs text-muted-foreground flex items-center gap-1.5">
                       <Loader class="h-3 w-3 animate-spin shrink-0" />
                       In elaborazione...
@@ -185,6 +230,33 @@
             {#if currentReport}
               <Separator />
               <ReportView report={currentReport} />
+
+              <Separator />
+              <!-- Refinement section -->
+              <div class="space-y-2">
+                <p class="text-xs font-medium text-muted-foreground">Affina il report</p>
+                <textarea
+                  bind:value={refinementPrompt}
+                  disabled={refining}
+                  rows={2}
+                  placeholder="Es: Mostra solo prodotti con peso > 100 KG..."
+                  class="w-full rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+                ></textarea>
+                <div class="flex gap-2">
+                  <Button class="flex-1" disabled={refining || !refinementPrompt.trim()} onclick={handleRefine}>
+                    {#if refining}
+                      <Loader class="mr-2 h-4 w-4 animate-spin" />
+                      Elaborazione...
+                    {:else}
+                      <Send class="mr-2 h-4 w-4" />
+                      Invia
+                    {/if}
+                  </Button>
+                  <Button variant="outline" onclick={handleNewAnalysis} disabled={refining || running}>
+                    Nuova analisi
+                  </Button>
+                </div>
+              </div>
             {/if}
           </div>
 
@@ -218,12 +290,15 @@
         {/if}
       </div>
 
-      <!-- Fixed save bar — always reachable -->
+      <!-- Fixed save bar -->
       {#if tab === 'new' && currentReport}
-        <div class="shrink-0 border-t bg-background px-6 py-3">
-          <Button variant="outline" class="w-full" onclick={handleSave}>
+        <div class="shrink-0 border-t bg-background px-6 py-3 flex gap-2">
+          <Button variant="outline" class="flex-1" onclick={handleSave}>
             <Save class="mr-2 h-4 w-4" />
             Salva report
+          </Button>
+          <Button variant="outline" size="icon" onclick={() => exportReportToDocx(currentReport!)} title="Esporta DOCX">
+            <Download class="h-4 w-4" />
           </Button>
         </div>
       {/if}
@@ -237,8 +312,11 @@
     <Dialog.Portal>
       <Dialog.Overlay />
       <Dialog.Content class="sm:max-w-[700px] max-h-[85vh] flex flex-col gap-0 p-0">
-        <Dialog.Header class="shrink-0 px-6 py-4 border-b">
+        <Dialog.Header class="shrink-0 px-6 py-4 border-b flex items-center justify-between">
           <Dialog.Title>Report</Dialog.Title>
+          <Button variant="ghost" size="icon" onclick={() => exportReportToDocx(viewingReport!)} title="Esporta DOCX">
+            <Download class="h-4 w-4" />
+          </Button>
         </Dialog.Header>
         <div class="flex-1 min-h-0 overflow-y-auto px-6 py-4">
           <ReportView report={viewingReport} />

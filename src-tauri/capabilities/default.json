@@ -11,6 +11,7 @@
     "fs:allow-app-read-recursive",
     "fs:allow-app-write",
     "fs:allow-app-meta",
-    "process:allow-exit"
+    "process:allow-exit",
+    "dialog:allow-save"
   ]
 }

@@ -7,6 +7,9 @@ export interface AiConfig {
   endpoint: string;
   apiKey: string;
   model: string;
+  orchestratorModel: string;
+  taskModel: string;
+  contextWindow: number;
 }
 
 export const defaultAiConfig: AiConfig = {
@@ -15,6 +18,9 @@ export const defaultAiConfig: AiConfig = {
   endpoint: '',
   apiKey: '',
   model: '',
+  orchestratorModel: '',
+  taskModel: '',
+  contextWindow: 0,
 };
 
 async function configPath(): Promise<string> {

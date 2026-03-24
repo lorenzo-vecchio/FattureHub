@@ -45,6 +45,7 @@ fn set_document_edited(webview_window: tauri::WebviewWindow, edited: bool) {
 pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![force_exit, set_document_edited, http_post])
+    .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_process::init())
     .setup(|app| {

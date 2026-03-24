@@ -1,4 +1,5 @@
 import { generateText, stepCountIs, hasToolCall } from 'ai';
+import type { ModelMessage } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
@@ -14,7 +15,6 @@ const textBlockSchema = z.object({
   content: z.string(),
 });
 
-// finish_report accepts real table data OR a reference to a workspace table
 const tableRefSchema = z.object({
   type: z.literal('table_ref'),
   tableId: z.string(),
@@ -33,7 +33,11 @@ const reportBlocksSchema = z.array(z.union([textBlockSchema, tableRefSchema, inl
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildModel(config: AiConfig): any {
+function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): any {
+  const modelName = role === 'task'
+    ? (config.taskModel || config.model)
+    : (config.orchestratorModel || config.model);
+
   if (config.provider === 'anthropic') {
     const provider = createAnthropic({
       apiKey: config.apiKey,
@@ -41,7 +45,7 @@ function buildModel(config: AiConfig): any {
       fetch: tauriFetch as typeof fetch,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (provider as any)(config.model);
+    return (provider as any)(modelName);
   }
   const provider = createOpenAI({
     apiKey: config.apiKey,
@@ -49,7 +53,7 @@ function buildModel(config: AiConfig): any {
     fetch: tauriFetch as typeof fetch,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (provider as any).chat(config.model);
+  return (provider as any).chat(modelName);
 }
 
 function extractLineeFromXml(rawXml: string): Fattura['lineeDettaglio'] {
@@ -101,6 +105,55 @@ function fatturaToDetails(f: Fattura) {
   return rest;
 }
 
+/** Extract unit weight from a product description. Returns weight in KG or LT. */
+function extractUnitWeight(desc: string): { weight: number; unitNorm: 'KG' | 'LT' } | null {
+  const s = desc.toUpperCase();
+  const patterns: [RegExp, (m: RegExpMatchArray) => { weight: number; unitNorm: 'KG' | 'LT' } | null][] = [
+    [/\bKG[.\s]?(\d+(?:[.,]\d+)?)/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')), unitNorm: 'KG' })],
+    [/(\d+(?:[.,]\d+)?)[.\s]?KG\b/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')), unitNorm: 'KG' })],
+    [/\bGR[.\s]?(\d+(?:[.,]\d+)?)/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 1000, unitNorm: 'KG' })],
+    [/(\d+(?:[.,]\d+)?)[.\s]?GR\b/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 1000, unitNorm: 'KG' })],
+    [/\bG[.\s]?(\d+(?:[.,]\d+)?)/,    (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 1000, unitNorm: 'KG' })],
+    [/(\d+(?:[.,]\d+)?)[.\s]?G\b/,    (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 1000, unitNorm: 'KG' })],
+    [/\bLT[.\s]?(\d+(?:[.,]\d+)?)/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')), unitNorm: 'LT' })],
+    [/(\d+(?:[.,]\d+)?)[.\s]?LT\b/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')), unitNorm: 'LT' })],
+    [/\bML[.\s]?(\d+(?:[.,]\d+)?)/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 1000, unitNorm: 'LT' })],
+    [/(\d+(?:[.,]\d+)?)[.\s]?ML\b/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 1000, unitNorm: 'LT' })],
+    [/\bCL[.\s]?(\d+(?:[.,]\d+)?)/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 100, unitNorm: 'LT' })],
+    [/(\d+(?:[.,]\d+)?)[.\s]?CL\b/,   (m) => ({ weight: parseFloat(m[1].replace(',', '.')) / 100, unitNorm: 'LT' })],
+  ];
+  for (const [re, fn] of patterns) {
+    const m = s.match(re);
+    if (m) {
+      const result = fn(m);
+      if (result && result.weight > 0) return result;
+    }
+  }
+  return null;
+}
+
+function estimateTokens(messages: ModelMessage[]): number {
+  return Math.ceil(JSON.stringify(messages).length / 3.5);
+}
+
+async function compressContext(
+  messages: ModelMessage[],
+  plan: string,
+  config: AiConfig,
+): Promise<string> {
+  const compressModel = buildModel(config, 'orchestrator');
+  try {
+    const result = await generateText({
+      model: compressModel,
+      system: 'Sei un assistente che riassume sessioni di analisi. Produci un riassunto conciso in italiano di ciò che è stato fatto e dei risultati ottenuti.',
+      prompt: `Riassumi questa sessione di lavoro in 200 parole massimo:\n\nPIANO: ${plan || 'nessuno'}\n\nMESSAGGI:\n${JSON.stringify(messages.slice(-20))}`,
+    });
+    return result.text;
+  } catch {
+    return '[Sommario non disponibile]';
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type AggregateProduct = {
@@ -108,6 +161,8 @@ type AggregateProduct = {
   unitaMisura: string | null;
   quantitaTotale: number;
   occorrenze: number;
+  pesoTotale: number | null;
+  pesoUnitaNorm: 'KG' | 'LT' | null;
   fornitori: { fornitore: string; quantita: number }[];
 };
 
@@ -125,10 +180,11 @@ export async function runAiAgent(opts: {
   config: AiConfig;
   projectId: string;
   onProgress: (msg: string) => void;
-}): Promise<Report> {
-  const { prompt, fatture, config, projectId, onProgress } = opts;
+  conversationMessages?: ModelMessage[];
+}): Promise<{ report: Report; messages: ModelMessage[] }> {
+  const { prompt, fatture, config, projectId, onProgress, conversationMessages } = opts;
 
-  const model = buildModel(config);
+  const orchestratorModel = buildModel(config, 'orchestrator');
   // Snapshot: strip Svelte 5 reactive proxies (AI SDK uses structuredClone internally)
   const plainFatture = JSON.parse(JSON.stringify(fatture)) as Fattura[];
 
@@ -141,41 +197,60 @@ export async function runAiAgent(opts: {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // ── Workspace: named in-memory tables the AI builds incrementally ──────────
-  // Tables are stored HERE (not in tool call arguments) so the LLM never has
-  // to reproduce large row arrays — it just references tables by ID.
+  // ── Workspace: named in-memory tables ──────────────────────────────────────
   const workspace = new Map<string, WorkspaceTable>();
   let lastAggregateResult: AggregateProduct[] | null = null;
 
   // ── Captured report blocks ────────────────────────────────────────────────
   let capturedBlocks: ReportBlock[] | null = null;
 
-  const systemPrompt = `Sei un assistente che analizza fatture elettroniche italiane.
-Data odierna: ${today} — Fatture caricate: ${plainFatture.length}
+  // ── Plan ──────────────────────────────────────────────────────────────────
+  let plan = '';
 
-== WORKFLOW CONSIGLIATO ==
-1. Raccogli i dati con aggregate_products (o altri strumenti di lettura).
-2. Crea tabelle nel workspace con workspace_from_aggregate o workspace_add_rows.
-   Le tabelle vengono salvate in memoria: non devi riprodurre i dati in finish_report.
-3. Opzionalmente usa workspace_compute per calcolare statistiche.
-4. Chiama finish_report con blocchi "text" (markdown) e "table_ref" (riferimento a tabella workspace).
-   IMPORTANTE: usa "table_ref" invece di riprodurre le righe — finish_report deve essere PICCOLO.
+  function buildWorkspaceState(): string {
+    if (workspace.size === 0) return '(vuoto)';
+    return Array.from(workspace.entries())
+      .map(([id, t]) => `• "${id}" — ${t.title} (${t.rows.length} righe, colonne: ${t.columns.map(c => c.key).join(', ')})`)
+      .join('\n');
+  }
 
-== STRUMENTI ==
-- aggregate_products  → aggrega prodotti/quantità su tutte le fatture (una chiamata)
-- workspace_from_aggregate → crea tabella workspace dal risultato di aggregate_products
-- workspace_add_rows  → aggiunge righe manuali a una tabella workspace
-- workspace_compute   → somma/media/min/max su una colonna di una tabella workspace
-- list_fatture        → elenco fatture (senza linee prodotto)
-- get_fattura_details → dettagli di UNA fattura
-- get_all_line_items  → righe grezze paginate (solo se aggregate_products non basta)
-- finish_report       → OBBLIGATORIO — consegna il report finale
+  function buildSystemPrompt(): string {
+    let sys = `Sei un orchestratore che analizza fatture elettroniche italiane.
+Data: ${today} — Fatture: ${plainFatture.length}`;
 
-Rispondi sempre in italiano.`;
+    if (plan) {
+      sys += `\n\n== PIANO CORRENTE ==\n${plan}`;
+    }
+
+    sys += `\n\n== STATO WORKSPACE ==\n${buildWorkspaceState()}`;
+
+    sys += `\n\n== WORKFLOW CONSIGLIATO ==
+1. create_plan — registra il piano prima di iniziare
+2. aggregate_products — aggrega tutti i prodotti con estrazione automatica del peso
+3. group_similar_products — raggruppa prodotti simili in batch (loop finché done=true)
+4. workspace_compute — statistiche opzionali
+5. finish_report con table_ref — NON riprodurre le righe nel tool call
+
+Rispondi in italiano.`;
+
+    return sys;
+  }
 
   const tools = {
+    create_plan: {
+      description: 'Registra il piano di analisi prima di iniziare. Il piano sopravvive alla compressione del contesto.',
+      inputSchema: z.object({
+        planText: z.string().describe('Piano dettagliato in italiano di cosa fare e perché'),
+      }),
+      execute: async ({ planText }: { planText: string }) => {
+        plan = planText;
+        onProgress(`create_plan → piano registrato`);
+        return { ok: true, message: 'Piano registrato. Procedi con aggregate_products.' };
+      },
+    },
+
     aggregate_products: {
-      description: 'Aggrega tutte le righe di dettaglio in un\'unica chiamata: prodotti unici con quantità totale e suddivisione per fornitore. Risultati memorizzati internamente — usa workspace_from_aggregate per creare la tabella.',
+      description: 'Aggrega tutte le righe di dettaglio: prodotti unici con quantità totale, peso estratto automaticamente dalla descrizione, e suddivisione per fornitore.',
       inputSchema: z.object({
         search: z.string().optional().describe('Filtra descrizione prodotto (parziale)'),
         cedente: z.string().optional().describe('Filtra fornitore (parziale)'),
@@ -184,7 +259,14 @@ Rispondi sempre in italiano.`;
         sortBy: z.enum(['qty', 'name', 'occurrences']).optional().default('qty'),
       }),
       execute: async (args: { search?: string; cedente?: string; unitaMisura?: string; minQty?: number; sortBy?: 'qty' | 'name' | 'occurrences' }) => {
-        type Entry = { unit: string; totalQty: number; bySupplier: Record<string, number>; count: number };
+        type Entry = {
+          unit: string;
+          totalQty: number;
+          bySupplier: Record<string, number>;
+          count: number;
+          pesoTotale: number | null;
+          pesoUnitaNorm: 'KG' | 'LT' | null;
+        };
         const map = new Map<string, Entry>();
 
         for (const f of plainFatture) {
@@ -196,10 +278,19 @@ Rispondi sempre in italiano.`;
             const unit = l.unitaMisura ?? '';
             if (args.unitaMisura && unit.toLowerCase() !== args.unitaMisura.toLowerCase()) continue;
             const key = `${l.descrizione.trim()}|||${unit}`;
-            const entry = map.get(key) ?? { unit, totalQty: 0, bySupplier: {}, count: 0 };
+            const entry = map.get(key) ?? { unit, totalQty: 0, bySupplier: {}, count: 0, pesoTotale: null, pesoUnitaNorm: null };
             entry.totalQty += l.quantita ?? 0;
             entry.count++;
             entry.bySupplier[fornitore] = (entry.bySupplier[fornitore] ?? 0) + (l.quantita ?? 0);
+
+            // Extract weight from description
+            const uw = extractUnitWeight(l.descrizione);
+            if (uw && l.quantita != null) {
+              if (entry.pesoTotale === null) entry.pesoTotale = 0;
+              entry.pesoTotale += l.quantita * uw.weight;
+              entry.pesoUnitaNorm = uw.unitNorm;
+            }
+
             map.set(key, entry);
           }
         }
@@ -211,6 +302,8 @@ Rispondi sempre in italiano.`;
             unitaMisura: e.unit || null,
             quantitaTotale: Math.round(e.totalQty * 1000) / 1000,
             occorrenze: e.count,
+            pesoTotale: e.pesoTotale != null ? Math.round(e.pesoTotale * 1000) / 1000 : null,
+            pesoUnitaNorm: e.pesoUnitaNorm,
             fornitori: Object.entries(e.bySupplier)
               .sort((a, b) => b[1] - a[1])
               .map(([fornitore, qty]) => ({ fornitore, quantita: Math.round(qty * 1000) / 1000 })),
@@ -225,36 +318,163 @@ Rispondi sempre in italiano.`;
           b.quantitaTotale - a.quantitaTotale
         );
 
-        // Store full result in memory — not in the message history
         lastAggregateResult = results;
 
-        onProgress(`aggregate_products → ${results.length} prodotti unici da ${plainFatture.length} fatture`);
+        const withWeight = results.filter(r => r.pesoTotale != null).length;
+        onProgress(`aggregate_products → ${results.length} prodotti unici (${withWeight} con peso estratto)`);
 
-        // Return only summary to avoid filling context window
         return {
           totalProducts: results.length,
           totalLines: Array.from(map.values()).reduce((s, e) => s + e.count, 0),
+          withWeightExtracted: withWeight,
           topProducts: results.slice(0, 10).map(p => ({
             descrizione: p.descrizione,
             unitaMisura: p.unitaMisura,
             quantitaTotale: p.quantitaTotale,
             occorrenze: p.occorrenze,
+            pesoTotale: p.pesoTotale,
+            pesoUnitaNorm: p.pesoUnitaNorm,
           })),
-          message: `Dati completi (${results.length} prodotti) salvati in memoria. Usa workspace_from_aggregate per creare tabelle senza riprodurre i dati.`,
+          message: `Dati completi (${results.length} prodotti) in memoria. Usa workspace_from_aggregate o group_similar_products per elaborare.`,
+        };
+      },
+    },
+
+    group_similar_products: {
+      description: 'Raggruppa prodotti simili (stesso prodotto in formati/packaging diversi) usando il task model. Chiama in loop incrementando startIndex finché done=true.',
+      inputSchema: z.object({
+        outputTableId: z.string().describe('ID della tabella workspace da creare/aggiornare'),
+        outputTitle: z.string().describe('Titolo della tabella'),
+        startIndex: z.number().int().min(0).default(0).describe('Indice di partenza nel risultato di aggregate_products'),
+        batchSize: z.number().int().min(1).max(150).default(80).describe('Numero di prodotti da processare in questo batch'),
+        context: z.string().optional().describe('Contesto aggiuntivo per il raggruppamento'),
+      }),
+      execute: async (args: { outputTableId: string; outputTitle: string; startIndex: number; batchSize: number; context?: string }) => {
+        if (!lastAggregateResult) return { error: 'Chiama prima aggregate_products' };
+
+        const batch = lastAggregateResult.slice(args.startIndex, args.startIndex + args.batchSize);
+        if (batch.length === 0) {
+          return { done: true, processedInBatch: 0, groupsInBatch: 0, totalRowsInTable: workspace.get(args.outputTableId)?.rows.length ?? 0, nextStartIndex: args.startIndex, message: 'Batch vuoto — tutti i prodotti processati.' };
+        }
+
+        // Get existing group names for context (first 60)
+        const existingTable = workspace.get(args.outputTableId);
+        const existingGroups = existingTable
+          ? existingTable.rows.slice(0, 60).map(r => r['nomeCanoniche'] ?? r['canonicalName'] ?? '').filter(Boolean)
+          : [];
+
+        // Strip fornitori to save tokens
+        const batchInput = batch.map(p => ({
+          descrizione: p.descrizione,
+          quantitaTotale: p.quantitaTotale,
+          unitaMisura: p.unitaMisura,
+          occorrenze: p.occorrenze,
+          pesoTotale: p.pesoTotale,
+          pesoUnitaNorm: p.pesoUnitaNorm,
+        }));
+
+        const taskModel = buildModel(config, 'task');
+        let parsed: Array<{ canonicalName: string; unit: string; totalWeight: number; occurrences: number }> = [];
+
+        try {
+          const taskResult = await generateText({
+            model: taskModel,
+            system: `Sei un normalizzatore di prodotti per fatture italiane.
+Per ogni prodotto nel batch:
+1. RAGGRUPPA prodotti con lo stesso nome ma varianti (packaging, formato)
+   "KG.10 FARINA OO ORO 5 STAGIONI" e "KG 10 FARINA 00 ORO" → stesso gruppo
+   MA "FARINA 00" ≠ "FARINA INTEGRALE" (prodotti diversi)
+2. ESTRAI peso/volume dal nome del prodotto:
+   "KG.10 FARINA" → 10 KG per unità
+   "GR500 LIEVITO" → 0.5 KG per unità (÷1000)
+   "ML500 OLIO" → 0.5 LT per unità
+3. CALCOLA peso totale = peso_unitario × quantitaTotale
+   "KG.10 FARINA OO ORO" × 329 colli = 3290 KG
+4. Se il peso non è estraibile, usa quantitaTotale come occorrenze con unit "PZ"
+${existingGroups.length > 0 ? `GRUPPI ESISTENTI (usa questi nomi se applicabile): ${existingGroups.join(', ')}` : ''}
+${args.context ? `CONTESTO: ${args.context}` : ''}
+Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeight":3290,"occurrences":329}]`,
+            prompt: JSON.stringify(batchInput),
+          });
+
+          // Strip markdown fences if present
+          let raw = taskResult.text.trim();
+          const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (fenceMatch) raw = fenceMatch[1].trim();
+          parsed = JSON.parse(raw);
+        } catch {
+          // Fallback: passthrough
+          parsed = batch.map(p => ({
+            canonicalName: p.descrizione,
+            unit: p.pesoUnitaNorm ?? 'PZ',
+            totalWeight: p.pesoTotale ?? p.quantitaTotale,
+            occurrences: p.occorrenze,
+          }));
+        }
+
+        // Merge into workspace table
+        if (!existingTable) {
+          workspace.set(args.outputTableId, {
+            title: args.outputTitle,
+            columns: [
+              { key: 'nomeCanoniche', label: 'Prodotto' },
+              { key: 'unita', label: 'Unità' },
+              { key: 'pesoTotale', label: 'Peso/Qtà Totale' },
+              { key: 'occorrenze', label: 'Occorrenze' },
+            ],
+            rows: [],
+          });
+        }
+        const table = workspace.get(args.outputTableId)!;
+
+        for (const g of parsed) {
+          const key = (g.canonicalName ?? '').toLowerCase().trim();
+          const existingIdx = table.rows.findIndex(r => (r['nomeCanoniche'] ?? '').toLowerCase().trim() === key);
+          if (existingIdx >= 0) {
+            const existing = table.rows[existingIdx];
+            const prevWeight = parseFloat(existing['pesoTotale'] ?? '0') || 0;
+            const prevOcc = parseInt(existing['occorrenze'] ?? '0') || 0;
+            table.rows[existingIdx] = {
+              ...existing,
+              pesoTotale: String(Math.round((prevWeight + (g.totalWeight ?? 0)) * 1000) / 1000),
+              occorrenze: String(prevOcc + (g.occurrences ?? 0)),
+            };
+          } else {
+            table.rows.push({
+              nomeCanoniche: g.canonicalName ?? '',
+              unita: g.unit ?? 'PZ',
+              pesoTotale: String(Math.round((g.totalWeight ?? 0) * 1000) / 1000),
+              occorrenze: String(g.occurrences ?? 0),
+            });
+          }
+        }
+
+        const nextStartIndex = args.startIndex + batch.length;
+        const done = nextStartIndex >= lastAggregateResult.length;
+
+        onProgress(`group_similar_products → batch ${args.startIndex}-${nextStartIndex - 1}: ${parsed.length} gruppi (tabella: ${table.rows.length} righe)`);
+
+        return {
+          processedInBatch: batch.length,
+          groupsInBatch: parsed.length,
+          totalRowsInTable: table.rows.length,
+          nextStartIndex,
+          done,
+          message: done
+            ? `Raggruppamento completato. Tabella "${args.outputTableId}" ha ${table.rows.length} righe. Usa finish_report con table_ref.`
+            : `Continua con startIndex=${nextStartIndex} (processati ${nextStartIndex}/${lastAggregateResult.length}).`,
         };
       },
     },
 
     workspace_from_aggregate: {
-      description: 'Crea una tabella workspace dal risultato dell\'ultima chiamata a aggregate_products. La tabella viene salvata in memoria — referenziala in finish_report con { type: "table_ref", tableId }.',
+      description: 'Crea una tabella workspace dal risultato dell\'ultima aggregate_products. Usa table_ref in finish_report.',
       inputSchema: z.object({
         tableId: z.string().describe('Identificatore univoco della tabella (es. "prodotti")'),
         title: z.string().describe('Titolo della tabella'),
-        mode: z.enum(['by_product', 'by_product_supplier']).optional().default('by_product').describe(
-          'by_product: una riga per prodotto con quantità totale. by_product_supplier: una riga per combinazione prodotto+fornitore'
-        ),
-        search: z.string().optional().describe('Filtra ulteriormente per descrizione prodotto'),
-        minQty: z.number().optional().describe('Includi solo prodotti con quantità totale ≥ valore'),
+        mode: z.enum(['by_product', 'by_product_supplier']).optional().default('by_product'),
+        search: z.string().optional(),
+        minQty: z.number().optional(),
       }),
       execute: async (args: { tableId: string; title: string; mode?: 'by_product' | 'by_product_supplier'; search?: string; minQty?: number }) => {
         if (!lastAggregateResult) return { error: 'Chiama prima aggregate_products' };
@@ -291,12 +511,25 @@ Rispondi sempre in italiano.`;
             { key: 'quantitaTotale', label: 'Quantità Totale' },
             { key: 'occorrenze', label: 'Occorrenze' },
           ];
-          rows = source.map(p => ({
-            prodotto: p.descrizione,
-            unitaMisura: p.unitaMisura ?? '',
-            quantitaTotale: String(p.quantitaTotale),
-            occorrenze: String(p.occorrenze),
-          }));
+          // Add peso column if any product has weight
+          const hasWeight = source.some(p => p.pesoTotale != null);
+          if (hasWeight) {
+            columns.push({ key: 'pesoTotale', label: 'Peso Totale' });
+            columns.push({ key: 'pesoUnita', label: 'U.M. Peso' });
+          }
+          rows = source.map(p => {
+            const r: Record<string, string> = {
+              prodotto: p.descrizione,
+              unitaMisura: p.unitaMisura ?? '',
+              quantitaTotale: String(p.quantitaTotale),
+              occorrenze: String(p.occorrenze),
+            };
+            if (hasWeight) {
+              r['pesoTotale'] = p.pesoTotale != null ? String(p.pesoTotale) : '';
+              r['pesoUnita'] = p.pesoUnitaNorm ?? '';
+            }
+            return r;
+          });
         }
 
         workspace.set(args.tableId, { title: args.title, columns, rows });
@@ -310,11 +543,11 @@ Rispondi sempre in italiano.`;
     },
 
     workspace_add_rows: {
-      description: 'Aggiunge righe manuali a una tabella workspace. Crea la tabella se non esiste. Utile per accumulare dati da subtask o da analisi personalizzate.',
+      description: 'Aggiunge righe manuali a una tabella workspace.',
       inputSchema: z.object({
         tableId: z.string(),
-        title: z.string().optional().describe('Titolo (solo alla prima creazione)'),
-        columns: z.array(z.object({ key: z.string(), label: z.string() })).optional().describe('Colonne (solo alla prima creazione)'),
+        title: z.string().optional(),
+        columns: z.array(z.object({ key: z.string(), label: z.string() })).optional(),
         rows: z.array(z.record(z.string(), z.string())),
         mode: z.enum(['append', 'replace']).optional().default('append'),
       }),
@@ -332,11 +565,7 @@ Rispondi sempre in italiano.`;
         const table = workspace.get(args.tableId)!;
         table.rows.push(...args.rows);
         onProgress(`workspace_add_rows → "${args.tableId}": ${table.rows.length} righe totali`);
-        return {
-          tableId: args.tableId,
-          totalRows: table.rows.length,
-          added: args.rows.length,
-        };
+        return { tableId: args.tableId, totalRows: table.rows.length, added: args.rows.length };
       },
     },
 
@@ -346,7 +575,7 @@ Rispondi sempre in italiano.`;
         tableId: z.string(),
         columnKey: z.string(),
         operation: z.enum(['sum', 'count', 'avg', 'min', 'max', 'unique_count']),
-        label: z.string().optional().describe('Etichetta descrittiva del risultato'),
+        label: z.string().optional(),
       }),
       execute: async (args: { tableId: string; columnKey: string; operation: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'unique_count'; label?: string }) => {
         const table = workspace.get(args.tableId);
@@ -436,33 +665,8 @@ Rispondi sempre in italiano.`;
       },
     },
 
-    run_subtask: {
-      description: 'Estrazione avanzata da una singola fattura via LLM. Può usare workspace_add_rows per salvare i risultati.',
-      inputSchema: z.object({
-        fileName: z.string(),
-        task: z.string(),
-      }),
-      execute: async ({ fileName, task }: { fileName: string; task: string }) => {
-        const f = plainFatture.find(x => x.fileName === fileName);
-        if (!f) return { found: false, summary: `Fattura non trovata: ${fileName}`, extractions: [] };
-        onProgress(`run_subtask → ${fileName}`);
-        const subModel = buildModel(config);
-        try {
-          const result = await generateText({
-            model: subModel,
-            system: `Sei un estrattore di dati da fatture italiane. Rispondi SOLO con JSON valido:
-{"found": true, "summary": "...", "extractions": [{"key": "...", "value": "...", "unit": "..."}]}`,
-            prompt: `Fattura: ${JSON.stringify(fatturaToDetails(f))}\n\nTask: ${task}`,
-          });
-          return JSON.parse(result.text);
-        } catch {
-          return { found: false, summary: 'Estrazione fallita', extractions: [] };
-        }
-      },
-    },
-
     finish_report: {
-      description: 'Consegna il report finale. Usa "table_ref" per referenziare tabelle workspace — NON riprodurre i dati. Esempio: { "type": "table_ref", "tableId": "prodotti" }',
+      description: 'Consegna il report finale. Usa "table_ref" per referenziare tabelle workspace — NON riprodurre i dati.',
       inputSchema: z.object({
         blocks: reportBlocksSchema,
       }),
@@ -488,34 +692,59 @@ Rispondi sempre in italiano.`;
     },
   };
 
-  const result = await generateText({
-    model,
-    system: systemPrompt,
-    prompt,
-    tools,
-    toolChoice: 'required',
-    stopWhen: [stepCountIs(50), hasToolCall('finish_report')],
-    onStepFinish: (step) => {
-      for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
-        if (tc.toolName !== 'finish_report') {
-          onProgress(`Strumento: ${tc.toolName}`);
-        }
-      }
-    },
-  });
+  // ── Multi-phase loop ──────────────────────────────────────────────────────
 
-  // Fallback: if finish_report was never called but the model produced text, wrap it
+  const originalPrompt = prompt;
+  const contextWindow = config.contextWindow ?? 0;
+
+  let messages: ModelMessage[] = conversationMessages
+    ? [...conversationMessages, { role: 'user', content: prompt }]
+    : [{ role: 'user', content: prompt }];
+
+  for (let phase = 0; phase < 8; phase++) {
+    const result = await generateText({
+      model: orchestratorModel,
+      system: buildSystemPrompt(),
+      messages,
+      tools,
+      toolChoice: 'auto',
+      stopWhen: [stepCountIs(15), hasToolCall('finish_report')],
+      onStepFinish: (step) => {
+        for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
+          if (tc.toolName !== 'finish_report') {
+            onProgress(`Strumento: ${tc.toolName}`);
+          }
+        }
+      },
+    });
+
+    messages = [...messages, ...(result.response.messages as ModelMessage[])];
+
+    if (capturedBlocks) break;
+
+    // Context compression
+    if (contextWindow > 0 && estimateTokens(messages) > contextWindow * 0.75) {
+      onProgress('Compressione contesto in corso...');
+      const summary = await compressContext(messages, plan, config);
+      plan = plan ? `${plan}\n\n[Fase ${phase + 1}]\n${summary}` : summary;
+      messages = [{ role: 'user', content: originalPrompt }];
+      onProgress('Contesto compresso, riprendo analisi...');
+    }
+  }
+
+  // Fallback: if finish_report was never called but the model produced text
   if (!capturedBlocks || (capturedBlocks as ReportBlock[]).length === 0) {
-    const text = result.steps
-      .map(s => s.text)
+    const lastMessages = messages.filter(m => m.role === 'assistant');
+    const text = lastMessages
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .flatMap(m => Array.isArray(m.content) ? (m.content as any[]).filter(c => c.type === 'text').map((c: { text: string }) => c.text) : [String(m.content)])
       .filter(Boolean)
       .join('\n\n')
       .trim();
 
     if (text) {
       capturedBlocks = [{ type: 'text', content: text }];
-      // Also attach any workspace tables that were built
-      for (const [tableId, table] of workspace) {
+      for (const [, table] of workspace) {
         capturedBlocks.push({ type: 'table', title: table.title, columns: table.columns, rows: table.rows });
       }
     } else {
@@ -523,11 +752,13 @@ Rispondi sempre in italiano.`;
     }
   }
 
-  return {
+  const report: Report = {
     id: crypto.randomUUID(),
     projectId,
     createdAt: Date.now(),
     prompt,
     blocks: capturedBlocks as ReportBlock[],
   };
+
+  return { report, messages };
 }
