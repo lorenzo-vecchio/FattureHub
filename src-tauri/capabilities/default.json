@@ -12,6 +12,10 @@
     "fs:allow-app-write",
     "fs:allow-app-meta",
     "process:allow-exit",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "fs:allow-write-file",
+    "fs:scope-home-recursive",
+    "fs:scope-desktop-recursive",
+    "fs:scope-download-recursive"
   ]
 }

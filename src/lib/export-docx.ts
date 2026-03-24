@@ -158,6 +158,8 @@ export async function exportReportToDocx(report: Report): Promise<void> {
     }],
   });
 
-  const buffer = await Packer.toBuffer(doc);
-  await writeFile(path, new Uint8Array(buffer));
+  // Use toBlob() for browser/WebView compatibility (toBuffer needs Node.js Buffer)
+  const blob = await Packer.toBlob(doc);
+  const arrayBuffer = await blob.arrayBuffer();
+  await writeFile(path, new Uint8Array(arrayBuffer));
 }
