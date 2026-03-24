@@ -28,6 +28,15 @@ export interface Fattura {
   causale: string;
   // Linee
   descrizioni: string[];
+  lineeDettaglio?: DettaglioLinea[];
+}
+
+export interface DettaglioLinea {
+  descrizione: string;
+  quantita?: number;
+  unitaMisura?: string;
+  prezzoUnitario?: number;
+  importo?: number;
 }
 
 function getText(el: Element | null | undefined, tag: string): string {
@@ -61,9 +70,15 @@ export function parseXml(fileName: string, xmlString: string): Fattura | null {
     const imposta = Array.from(body?.querySelectorAll('DatiRiepilogo') ?? [])
       .reduce((acc, r) => acc + getNum(r, 'Imposta'), 0);
 
-    const descrizioni = Array.from(body?.querySelectorAll('DettaglioLinee') ?? [])
-      .map(l => getText(l, 'Descrizione'))
-      .filter(Boolean);
+    const lineeEls = Array.from(body?.querySelectorAll('DettaglioLinee') ?? []);
+    const descrizioni = lineeEls.map(l => getText(l, 'Descrizione')).filter(Boolean);
+    const lineeDettaglio: DettaglioLinea[] = lineeEls.map(l => ({
+      descrizione: getText(l, 'Descrizione'),
+      quantita: getNum(l, 'Quantita') || undefined,
+      unitaMisura: getText(l, 'UnitaMisura') || undefined,
+      prezzoUnitario: getNum(l, 'PrezzoUnitario') || undefined,
+      importo: getNum(l, 'PrezzoTotale') || undefined,
+    }));
 
     return {
       fileName,
@@ -90,6 +105,7 @@ export function parseXml(fileName: string, xmlString: string): Fattura | null {
       valuta: getText(datiGen, 'Divisa') || 'EUR',
       causale: getText(datiGen, 'Causale'),
       descrizioni,
+      lineeDettaglio,
     };
   } catch {
     return null;

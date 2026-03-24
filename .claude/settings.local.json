@@ -18,7 +18,9 @@
       "Bash(printf \"yes\\\\n\" | npx shadcn-svelte@latest add sheet scroll-area --overwrite 2>&1)",
       "Bash(npm run:*)",
       "Bash(npm install:*)",
-      "Bash(cargo tree:*)"
+      "Bash(cargo tree:*)",
+      "Bash(grep:*)",
+      "Bash(node:*)"
     ]
   }
 }

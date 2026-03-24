@@ -3,6 +3,7 @@
   import { parseXml, type Fattura } from '$lib/parser';
   import { applyFilters, emptyFilters, countActiveFilters } from '$lib/filters';
   import { saveProject, updateProject, type Project } from '$lib/projects';
+  import { loadAiConfig, type AiConfig } from '$lib/ai-config';
   import JSZip from 'jszip';
 
   import AppHeader from '$lib/components/app/AppHeader.svelte';
@@ -15,6 +16,8 @@
   import SaveProjectDialog from '$lib/components/app/SaveProjectDialog.svelte';
   import UnsavedDialog from '$lib/components/app/UnsavedDialog.svelte';
   import SettingsSheet from '$lib/components/app/SettingsSheet.svelte';
+  import AiSheet from '$lib/components/app/AiSheet.svelte';
+  import AiRunningDialog from '$lib/components/app/AiRunningDialog.svelte';
 
   // ── Core state ────────────────────────────────────────────────────────────
   let fatture = $state<Fattura[]>([]);
@@ -37,13 +40,25 @@
     else isDirty = false;
   });
 
-  // Sync macOS close button dot (•) with dirty state
+  // Sync macOS close button dot (•) with dirty/AI state
   $effect(() => {
-    const dirty = isDirty;
+    const edited = isDirty || isAiRunning;
     import('@tauri-apps/api/core')
-      .then(({ invoke }) => invoke('set_document_edited', { edited: dirty }))
+      .then(({ invoke }) => invoke('set_document_edited', { edited }))
       .catch(() => {});
   });
+
+  // ── AI state ──────────────────────────────────────────────────────────────
+  let isAiRunning = $state(false);
+  let aiConfig = $state<AiConfig>({
+    enabled: false,
+    provider: 'openai',
+    endpoint: '',
+    apiKey: '',
+    model: '',
+  });
+  let aiOpen = $state(false);
+  let aiRunningOpen = $state(false);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   let projectsOpen = $state(false);
@@ -104,7 +119,6 @@
   }
 
   // ── Save logic ────────────────────────────────────────────────────────────
-  /** Called from the toolbar Save button */
   function handleSaveClick() {
     if (currentProject) {
       void handleQuickSave();
@@ -119,7 +133,6 @@
     isDirty = false;
   }
 
-  /** Called from SaveProjectDialog (new project name confirmed) */
   async function handleSaveNewProject(name: string): Promise<void> {
     const saved = await saveProject(name, fatture, filters);
     currentProject = { id: saved.id, name: saved.name };
@@ -208,13 +221,20 @@
   let unlistenClose: (() => void) | undefined;
 
   onMount(async () => {
+    // Load AI config
+    aiConfig = await loadAiConfig();
+
     try {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       unlistenClose = await getCurrentWindow().onCloseRequested((event) => {
-        if (!isDirty) return;
+        if (!isDirty && !isAiRunning) return;
         event.preventDefault();
         pendingAction = { type: 'close' };
-        unsavedOpen = true;
+        if (isAiRunning) {
+          aiRunningOpen = true;
+        } else {
+          unsavedOpen = true;
+        }
       });
     } catch {
       // Not running in Tauri (e.g. browser dev mode) — ignore
@@ -222,6 +242,18 @@
   });
 
   onDestroy(() => unlistenClose?.());
+
+  // ── AI running dialog ─────────────────────────────────────────────────────
+  async function handleAiRunningConfirm() {
+    aiRunningOpen = false;
+    isAiRunning = false; // force-stop
+    await executeAction();
+  }
+
+  function handleAiRunningCancel() {
+    aiRunningOpen = false;
+    pendingAction = null;
+  }
 </script>
 
 <div class="min-h-screen bg-muted/40">
@@ -230,9 +262,12 @@
     {activeFilters}
     {isDirty}
     currentProjectName={currentProject?.name ?? null}
+    aiEnabled={aiConfig.enabled}
+    {isAiRunning}
     onclear={handleClearClick}
     onopenprojects={() => (projectsOpen = true)}
     opensettings={() => (settingsOpen = true)}
+    openai={() => (aiOpen = true)}
   />
 
   <div class="mx-auto max-w-7xl px-6 py-6">
@@ -268,7 +303,17 @@
 </div>
 
 <ProjectsSheet bind:open={projectsOpen} onopen={handleOpenProjectRequest} />
-<SettingsSheet bind:open={settingsOpen} />
+<SettingsSheet
+  bind:open={settingsOpen}
+  onAiConfigChange={(cfg) => { aiConfig = cfg; }}
+/>
+<AiSheet
+  bind:open={aiOpen}
+  {fatture}
+  config={aiConfig}
+  projectId={currentProject?.id ?? null}
+  onrunningChange={(v) => { isAiRunning = v; }}
+/>
 <SaveProjectDialog bind:open={saveDialogOpen} onsave={handleSaveNewProject} />
 <UnsavedDialog
   open={unsavedOpen}
@@ -278,4 +323,9 @@
   onsave={handleUnsavedSave}
   onexecute={handleUnsavedDiscard}
   oncancel={handleUnsavedCancel}
+/>
+<AiRunningDialog
+  bind:open={aiRunningOpen}
+  onconfirm={handleAiRunningConfirm}
+  oncancel={handleAiRunningCancel}
 />
