@@ -140,6 +140,7 @@ async function compressContext(
   messages: ModelMessage[],
   plan: string,
   config: AiConfig,
+  abortSignal?: AbortSignal,
 ): Promise<string> {
   const compressModel = buildModel(config, 'orchestrator');
   try {
@@ -147,6 +148,7 @@ async function compressContext(
       model: compressModel,
       system: 'Sei un assistente che riassume sessioni di analisi. Produci un riassunto conciso in italiano di ciò che è stato fatto e dei risultati ottenuti.',
       prompt: `Riassumi questa sessione di lavoro in 200 parole massimo:\n\nPIANO: ${plan || 'nessuno'}\n\nMESSAGGI:\n${JSON.stringify(messages.slice(-20))}`,
+      abortSignal,
     });
     return result.text;
   } catch {
@@ -181,8 +183,9 @@ export async function runAiAgent(opts: {
   projectId: string;
   onProgress: (msg: string) => void;
   conversationMessages?: ModelMessage[];
+  abortSignal?: AbortSignal;
 }): Promise<{ report: Report; messages: ModelMessage[] }> {
-  const { prompt, fatture, config, projectId, onProgress, conversationMessages } = opts;
+  const { prompt, fatture, config, projectId, onProgress, conversationMessages, abortSignal } = opts;
 
   const orchestratorModel = buildModel(config, 'orchestrator');
   // Snapshot: strip Svelte 5 reactive proxies (AI SDK uses structuredClone internally)
@@ -395,6 +398,7 @@ ${existingGroups.length > 0 ? `GRUPPI ESISTENTI (usa questi nomi se applicabile)
 ${args.context ? `CONTESTO: ${args.context}` : ''}
 Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeight":3290,"occurrences":329}]`,
             prompt: JSON.stringify(batchInput),
+            abortSignal,
           });
 
           // Strip markdown fences if present
@@ -709,6 +713,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       tools,
       toolChoice: 'auto',
       stopWhen: [stepCountIs(15), hasToolCall('finish_report')],
+      abortSignal,
       onStepFinish: (step) => {
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
           if (tc.toolName !== 'finish_report') {
@@ -725,7 +730,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
     // Context compression
     if (contextWindow > 0 && estimateTokens(messages) > contextWindow * 0.75) {
       onProgress('Compressione contesto in corso...');
-      const summary = await compressContext(messages, plan, config);
+      const summary = await compressContext(messages, plan, config, abortSignal);
       plan = plan ? `${plan}\n\n[Fase ${phase + 1}]\n${summary}` : summary;
       messages = [{ role: 'user', content: originalPrompt }];
       onProgress('Contesto compresso, riprendo analisi...');

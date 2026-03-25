@@ -3,7 +3,7 @@
   import * as Dialog from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
   import { Separator } from '$lib/components/ui/separator';
-  import { Sparkles, Loader, Save, Trash2, ChevronRight, Send, Download } from 'lucide-svelte';
+  import { Sparkles, Loader, Save, Trash2, ChevronRight, Send, Download, Square } from 'lucide-svelte';
   import type { ModelMessage } from 'ai';
   import type { Fattura } from '$lib/parser';
   import type { AiConfig } from '$lib/ai-config';
@@ -41,6 +41,8 @@
   let conversationMessages = $state<ModelMessage[]>([]);
   let refinementPrompt = $state('');
   let refining = $state(false);
+  // Not $state — AbortController must NOT be proxied by Svelte or .abort() breaks
+  let abortController: AbortController | null = null;
 
   function handleOpenChange(v: boolean) {
     open = v;
@@ -52,6 +54,11 @@
     savedReports = await loadReports(projectId);
   }
 
+  function handleStop() {
+    abortController?.abort();
+    abortController = null;
+  }
+
   async function handleGenerate() {
     if (!prompt.trim() || !projectId || running) return;
     running = true;
@@ -60,6 +67,8 @@
     currentReport = null;
     errorMsg = null;
     conversationMessages = [];
+    const controller = new AbortController();
+    abortController = controller;
 
     try {
       const { report, messages } = await runAiAgent({
@@ -68,13 +77,19 @@
         config,
         projectId,
         onProgress: (msg) => { progressSteps = [...progressSteps, msg]; },
+        abortSignal: controller.signal,
       });
       currentReport = report;
       conversationMessages = messages;
     } catch (e) {
-      errorMsg = String(e);
+      if ((e as Error)?.name === 'AbortError') {
+        progressSteps = [...progressSteps, 'Elaborazione interrotta.'];
+      } else {
+        errorMsg = String(e);
+      }
     } finally {
       running = false;
+      abortController = null;
       onrunningChange(false);
     }
   }
@@ -85,6 +100,8 @@
     onrunningChange(true);
     progressSteps = [];
     errorMsg = null;
+    const controller = new AbortController();
+    abortController = controller;
 
     try {
       const { report, messages } = await runAiAgent({
@@ -94,14 +111,20 @@
         projectId,
         onProgress: (msg) => { progressSteps = [...progressSteps, msg]; },
         conversationMessages,
+        abortSignal: controller.signal,
       });
       currentReport = report;
       conversationMessages = messages;
       refinementPrompt = '';
     } catch (e) {
-      errorMsg = String(e);
+      if ((e as Error)?.name === 'AbortError') {
+        progressSteps = [...progressSteps, 'Elaborazione interrotta.'];
+      } else {
+        errorMsg = String(e);
+      }
     } finally {
       refining = false;
+      abortController = null;
       onrunningChange(false);
     }
   }
@@ -196,10 +219,16 @@
                   Genera Report
                 {/if}
               </Button>
+              {#if running || refining}
+                <Button variant="destructive" class="w-full" onclick={handleStop}>
+                  <Square class="mr-2 h-4 w-4 fill-current" />
+                  Interrompi elaborazione
+                </Button>
+              {/if}
             </div>
 
             <!-- Progress -->
-            {#if progressSteps.length > 0}
+            {#if progressSteps.length > 0 || running || refining}
               <div class="space-y-1">
                 <p class="text-xs font-medium text-muted-foreground">Avanzamento</p>
                 <div class="rounded-md border bg-muted/30 px-3 py-2 space-y-1 max-h-36 overflow-y-auto">

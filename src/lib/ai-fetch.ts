@@ -26,7 +26,27 @@ export async function tauriFetch(
 
   const body = typeof init?.body === 'string' ? init.body : '';
 
-  const result = await invoke<TauriHttpResponse>('http_post', { url, headers, body });
+  const signal = init?.signal;
+
+  // Race the Rust HTTP call against the abort signal.
+  // invoke() itself is not cancellable, but we reject as soon as abort fires
+  // so the AI SDK stops processing and making further requests.
+  const invokePromise = invoke<TauriHttpResponse>('http_post', { url, headers, body });
+
+  const result = await (signal
+    ? Promise.race([
+        invokePromise,
+        new Promise<never>((_, reject) => {
+          if (signal.aborted) {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+            return;
+          }
+          signal.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+          }, { once: true });
+        }),
+      ])
+    : invokePromise);
 
   return new Response(result.body, {
     status: result.status,
