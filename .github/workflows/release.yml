@@ -52,7 +52,20 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'v__VERSION__'
-          releaseBody: 'See the assets below to download this version.'
+          releaseBody: |
+            Scarica il file appropriato per il tuo sistema operativo dagli assets qui sotto.
+
+            ### macOS — Prima apertura
+            Poiché l'app non è firmata con un certificato Apple Developer, macOS potrebbe bloccarla.
+            Se compare un avviso, usa uno di questi metodi:
+
+            **Metodo 1 (raccomandato):** Apri il Terminale ed esegui:
+            ```
+            xattr -cr "/Applications/Filtra Fatture.app"
+            ```
+            Poi apri normalmente l'app.
+
+            **Metodo 2:** Tasto destro sull'app → "Apri" → "Apri" nel dialogo di conferma.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
