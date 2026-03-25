@@ -146,7 +146,7 @@
             </div>
 
             <div class="space-y-1.5">
-              <Label class="text-xs" for="ai-model">Modello</Label>
+              <Label class="text-xs" for="ai-model">Modello di default</Label>
               <Input
                 id="ai-model"
                 class="h-7 text-xs"
