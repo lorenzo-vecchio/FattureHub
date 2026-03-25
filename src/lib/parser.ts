@@ -39,6 +39,91 @@ export interface DettaglioLinea {
   importo?: number;
 }
 
+// ── .p7m extraction ───────────────────────────────────────────────────────────
+
+/**
+ * Italian FatturaPA .p7m files are CMS/PKCS#7 DER-encoded SignedData where the
+ * original XML is stored as a CONSTRUCTED OCTET STRING split into 1000-byte
+ * primitive chunks: 04 82 03e8 <1000 bytes> 04 82 03e8 <1000 bytes> …
+ *
+ * 0x04 (EOT) is not valid in XML, so every 0x04 byte in the content is
+ * guaranteed to be a DER OCTET STRING tag. We strip tag+length, reassemble the
+ * clean bytes, then decode as UTF-8.
+ */
+function reassembleDerContent(bytes: Uint8Array, start: number): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let i = start;
+  let chunkStart = start;
+
+  while (i < bytes.length) {
+    // End-of-contents (00 00) terminates indefinite-length encoding
+    if (bytes[i] === 0x00 && bytes[i + 1] === 0x00) {
+      if (i > chunkStart) chunks.push(bytes.subarray(chunkStart, i));
+      break;
+    }
+    // OCTET STRING primitive tag
+    if (bytes[i] === 0x04 && i + 1 < bytes.length) {
+      const lb = bytes[i + 1];
+      const skip = lb < 0x80 ? 2 : lb === 0x81 ? 3 : lb === 0x82 ? 4 : lb === 0x83 ? 5 : 0;
+      if (skip > 0) {
+        if (i > chunkStart) chunks.push(bytes.subarray(chunkStart, i));
+        i += skip;
+        chunkStart = i;
+        continue;
+      }
+    }
+    i++;
+  }
+  if (chunkStart < i && i <= bytes.length) chunks.push(bytes.subarray(chunkStart, i));
+
+  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+  const out = new Uint8Array(totalLen);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return out;
+}
+
+export function extractXmlFromP7m(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+
+  // Find <?xml — may be preceded by UTF-8 BOM (EF BB BF)
+  const tag = [0x3C, 0x3F, 0x78, 0x6D, 0x6C]; // <?xml
+  let xmlStart = -1;
+  outer: for (let i = 0; i <= bytes.length - tag.length; i++) {
+    for (let j = 0; j < tag.length; j++) if (bytes[i + j] !== tag[j]) continue outer;
+    // Include BOM if immediately preceding
+    xmlStart = i >= 3 && bytes[i - 3] === 0xEF && bytes[i - 2] === 0xBB && bytes[i - 1] === 0xBF
+      ? i - 3 : i;
+    break;
+  }
+
+  // Fallback: root element without XML declaration
+  if (xmlStart === -1) {
+    const root = new TextEncoder().encode('<FatturaElettronica');
+    outer2: for (let i = 0; i <= bytes.length - root.length; i++) {
+      for (let j = 0; j < root.length; j++) if (bytes[i + j] !== root[j]) continue outer2;
+      xmlStart = i;
+      break;
+    }
+  }
+
+  if (xmlStart === -1) throw new Error('Contenuto XML non trovato nel file .p7m');
+
+  // Strip DER OCTET STRING chunk headers and reassemble clean bytes
+  const cleaned = reassembleDerContent(bytes, xmlStart);
+  let xml = new TextDecoder('utf-8', { fatal: false }).decode(cleaned);
+
+  // Strip UTF-8 BOM if decoded
+  xml = xml.replace(/^\uFEFF/, '');
+
+  // Trim at root closing tag
+  const end = xml.match(/<\/[\w:]*FatturaElettronica>/);
+  if (end?.index !== undefined) return xml.slice(0, end.index + end[0].length);
+
+  const lastGt = xml.lastIndexOf('>');
+  return lastGt !== -1 ? xml.slice(0, lastGt + 1) : xml;
+}
+
 function getText(el: Element | null | undefined, tag: string): string {
   if (!el) return '';
   return el.querySelector(tag)?.textContent?.trim() ?? '';

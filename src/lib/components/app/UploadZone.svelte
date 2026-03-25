@@ -77,7 +77,7 @@
     </div>
     <div class="text-center">
       <p class="text-lg font-medium">Trascina una cartella o un file ZIP</p>
-      <p class="mt-1 text-sm text-muted-foreground">Supporta file .xml e archivi .zip contenenti fatture FatturaPA</p>
+      <p class="mt-1 text-sm text-muted-foreground">Supporta file .xml, .p7m (XML firmato) e archivi .zip contenenti fatture FatturaPA</p>
     </div>
     <div class="flex gap-3">
       <Button variant="outline">
@@ -90,8 +90,8 @@
       <Button variant="outline">
         <label class="cursor-pointer flex flex-row">
           <Upload class="mr-2 h-4 w-4" />
-          Scegli file XML / ZIP
-          <input type="file" class="sr-only" multiple accept=".xml,.zip" onchange={handleInput} />
+          Scegli file
+          <input type="file" class="sr-only" multiple accept=".xml,.p7m,.zip" onchange={handleInput} />
         </label>
       </Button>
     </div>

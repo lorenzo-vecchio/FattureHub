@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick, onMount, onDestroy } from 'svelte';
-  import { parseXml, type Fattura } from '$lib/parser';
+  import { parseXml, extractXmlFromP7m, type Fattura } from '$lib/parser';
   import { applyFilters, emptyFilters, countActiveFilters } from '$lib/filters';
   import { saveProject, updateProject, type Project } from '$lib/projects';
   import { loadAiConfig, defaultAiConfig, type AiConfig } from '$lib/ai-config';
@@ -89,13 +89,29 @@
       if (file.name.endsWith('.zip')) {
         const zip = await JSZip.loadAsync(file);
         for (const [path, entry] of Object.entries(zip.files)) {
-          if (!entry.dir && path.toLowerCase().endsWith('.xml') && !isMacMeta(path)) {
-            const text = await entry.async('string');
-            xmlFiles.push({ name: path.split('/').pop() ?? path, text });
+          if (entry.dir || isMacMeta(path)) continue;
+          const lower = path.toLowerCase();
+          const name = path.split('/').pop() ?? path;
+          if (lower.endsWith('.xml')) {
+            xmlFiles.push({ name, text: await entry.async('string') });
+          } else if (lower.endsWith('.p7m')) {
+            try {
+              const buf = await entry.async('arraybuffer');
+              xmlFiles.push({ name, text: extractXmlFromP7m(buf) });
+            } catch (e) {
+              errors = [...errors, `${name}: ${e}`];
+            }
           }
         }
       } else if (file.name.toLowerCase().endsWith('.xml') && !isMacMeta(file.name)) {
         xmlFiles.push({ name: file.name, text: await file.text() });
+      } else if (file.name.toLowerCase().endsWith('.p7m') && !isMacMeta(file.name)) {
+        try {
+          const buf = await file.arrayBuffer();
+          xmlFiles.push({ name: file.name, text: extractXmlFromP7m(buf) });
+        } catch (e) {
+          errors = [...errors, `${file.name}: ${e}`];
+        }
       }
     }
 
