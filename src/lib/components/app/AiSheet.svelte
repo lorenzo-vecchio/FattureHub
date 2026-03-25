@@ -297,8 +297,9 @@
             <Save class="mr-2 h-4 w-4" />
             Salva report
           </Button>
-          <Button variant="outline" size="icon" onclick={() => exportReportToDocx(currentReport!)} title="Esporta DOCX">
-            <Download class="h-4 w-4" />
+          <Button variant="outline" onclick={() => exportReportToDocx(currentReport!)} title="Esporta DOCX">
+            <Download class="mr-2 h-4 w-4" />
+            Scarica DOCX
           </Button>
         </div>
       {/if}
@@ -314,8 +315,9 @@
       <Dialog.Content class="sm:max-w-[700px] max-h-[85vh] flex flex-col gap-0 p-0">
         <Dialog.Header class="shrink-0 px-6 py-4 border-b flex items-center justify-between">
           <Dialog.Title>Report</Dialog.Title>
-          <Button variant="ghost" size="icon" onclick={() => exportReportToDocx(viewingReport!)} title="Esporta DOCX">
-            <Download class="h-4 w-4" />
+          <Button variant="ghost" onclick={() => exportReportToDocx(viewingReport!)} title="Esporta DOCX">
+            <Download class="mr-2 h-4 w-4" />
+            Scarica DOCX
           </Button>
         </Dialog.Header>
         <div class="flex-1 min-h-0 overflow-y-auto px-6 py-4">
