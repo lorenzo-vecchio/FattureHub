@@ -11,6 +11,7 @@ import {
   ShadingType,
   WidthType,
   BorderStyle,
+  HeightRule,
 } from 'docx';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
@@ -82,28 +83,44 @@ function tableBlockToDocxTable(block: TableBlock): (Paragraph | Table)[] {
     }));
   }
 
+  // A4 (11906 DXA) − 2 × 1134 DXA margins = 9638 DXA text width
+  const tableWidth = 9638;
+  const nCols = block.columns.length;
+  const colWidth = Math.floor(tableWidth / nCols);
+  // Last column gets the remainder so columns sum exactly to tableWidth
+  const colWidths = block.columns.map((_, i) =>
+    i === nCols - 1 ? tableWidth - colWidth * (nCols - 1) : colWidth
+  );
+  const cellMargins = { top: 120, bottom: 120, left: 160, right: 160 };
+  const rowHeight = { value: 480, rule: HeightRule.ATLEAST };
+
   const headerRow = new TableRow({
     tableHeader: true,
+    height: rowHeight,
     children: block.columns.map(col =>
       new TableCell({
         shading: { type: ShadingType.SOLID, color: '4F46E5', fill: '4F46E5' },
+        margins: cellMargins,
         children: [new Paragraph({
           children: [new TextRun({ text: col.label, bold: true, color: 'FFFFFF' })],
+          spacing: { before: 80, after: 80 },
         })],
-        width: { size: Math.floor(9000 / block.columns.length), type: WidthType.DXA },
       })
     ),
   });
 
   const dataRows = block.rows.map((row, rowIdx) =>
     new TableRow({
+      height: rowHeight,
       children: block.columns.map(col =>
         new TableCell({
           shading: rowIdx % 2 === 1
             ? { type: ShadingType.SOLID, color: 'F3F4F6', fill: 'F3F4F6' }
             : undefined,
+          margins: cellMargins,
           children: [new Paragraph({
             children: [new TextRun({ text: String(row[col.key] ?? '') })],
+            spacing: { before: 80, after: 80 },
           })],
           borders: {
             top: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
@@ -111,7 +128,6 @@ function tableBlockToDocxTable(block: TableBlock): (Paragraph | Table)[] {
             left: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
             right: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
           },
-          width: { size: Math.floor(9000 / block.columns.length), type: WidthType.DXA },
         })
       ),
     })
@@ -119,7 +135,8 @@ function tableBlockToDocxTable(block: TableBlock): (Paragraph | Table)[] {
 
   result.push(new Table({
     rows: [headerRow, ...dataRows],
-    width: { size: 9000, type: WidthType.DXA },
+    width: { size: tableWidth, type: WidthType.DXA },
+    columnWidths: colWidths,  // defines tblGrid — primary width reference for Word
   }));
 
   return result;
@@ -154,6 +171,12 @@ export async function exportReportToDocx(report: Report): Promise<void> {
 
   const doc = new Document({
     sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 }, // A4 in DXA (twips)
+          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }, // 2 cm
+        },
+      },
       children,
     }],
   });
