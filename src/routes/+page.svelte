@@ -4,6 +4,7 @@
   import { applyFilters, emptyFilters, countActiveFilters } from '$lib/filters';
   import { saveProject, updateProject, type Project } from '$lib/projects';
   import { loadAiConfig, defaultAiConfig, type AiConfig } from '$lib/ai-config';
+  import { db, saveInvoice, getAllInvoices, clearAllInvoices, initializeDatabase, getSetting, setSetting } from '$lib/db-dexie';
   import JSZip from 'jszip';
 
   import AppHeader from '$lib/components/app/AppHeader.svelte';
@@ -80,6 +81,41 @@
     return name.startsWith('._') || path.includes('__MACOSX');
   }
 
+  async function compressAndSaveFiles(fattureToSave: Fattura[]): Promise<string | undefined> {
+    const keepFiles = await getSetting('keepFilesAfterImport')
+    if (keepFiles !== 'true') return undefined
+    
+    try {
+      const { appDataDir, join } = await import('@tauri-apps/api/path')
+      const { mkdir, writeFile } = await import('@tauri-apps/plugin-fs')
+      
+      const baseDir = await appDataDir()
+      const importsDir = await join(baseDir, 'imports')
+      await mkdir(importsDir, { recursive: true })
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const zipFileName = `import-${timestamp}.zip`
+      const zipPath = await join(importsDir, zipFileName)
+      
+      // Create zip using JSZip
+      const zip = new JSZip()
+      
+      for (const fattura of fattureToSave) {
+        zip.file(fattura.fileName, fattura.rawXml)
+      }
+      
+      const zipContent = await zip.generateAsync({ type: 'uint8array' })
+      
+      // Save using Tauri's file system API
+      await writeFile(zipPath, zipContent)
+      
+      return zipPath
+    } catch (error) {
+      console.error('Failed to compress and save files:', error)
+      return undefined
+    }
+  }
+
   async function processFiles(files: File[]) {
     loading = true;
     errors = [];
@@ -124,7 +160,20 @@
       loadingProgress.done++;
     }
 
-    fatture = [...fatture, ...parsed];
+    // Save to database
+    if (parsed.length > 0) {
+      // Compress and save files if enabled
+      const compressedFilePath = await compressAndSaveFiles(parsed)
+      
+      // Save each invoice to database
+      for (const fattura of parsed) {
+        await saveInvoice(fattura, compressedFilePath)
+      }
+      
+      // Reload all invoices from database
+      fatture = await getAllInvoices()
+    }
+    
     loading = false;
   }
 
@@ -161,7 +210,16 @@
   }
 
   async function doOpenProject(project: Project) {
-    fatture = project.fatture;
+    // Clear existing invoices from database
+    await clearAllInvoices();
+    
+    // Save project invoices to database
+    for (const fattura of project.fatture) {
+      await saveInvoice(fattura)
+    }
+    
+    // Load from database
+    fatture = await getAllInvoices();
     filters = project.filters;
     currentProject = { id: project.id, name: project.name };
     errors = [];
@@ -179,7 +237,8 @@
     }
   }
 
-  function doClearAll() {
+  async function doClearAll() {
+    await clearAllInvoices();
     fatture = [];
     filters = emptyFilters();
     errors = [];
@@ -231,6 +290,10 @@
   let unlistenClose: (() => void) | undefined;
 
   onMount(async () => {
+    // Initialize database and load invoices
+    await initializeDatabase();
+    fatture = await getAllInvoices();
+    
     // Load AI config
     aiConfig = await loadAiConfig();
 
