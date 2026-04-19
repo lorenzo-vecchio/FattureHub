@@ -211,14 +211,27 @@ export async function clearAllInvoices(): Promise<void> {
 
 // Initialize default settings
 export async function initializeDatabase(): Promise<void> {
-  // Check if settings exist, create defaults if not
-  const keepFilesSetting = await getSetting('keepFilesAfterImport')
-  if (keepFilesSetting === null) {
-    await setSetting('keepFilesAfterImport', 'false')
-  }
+  // Default settings
+  const defaultSettings = [
+    { key: 'keepFilesAfterImport', value: 'false' },
+    { key: 'compressionLevel', value: '6' },
+    { key: 'aiConfig', value: JSON.stringify({
+      enabled: false,
+      provider: 'openai',
+      endpoint: '',
+      apiKey: '',
+      model: '',
+      orchestratorModel: '',
+      taskModel: '',
+      contextWindow: 0,
+    })},
+  ]
   
-  const compressionLevel = await getSetting('compressionLevel')
-  if (compressionLevel === null) {
-    await setSetting('compressionLevel', '6') // Default compression level
+  // Check and set default settings if they don't exist
+  for (const setting of defaultSettings) {
+    const existing = await getSetting(setting.key)
+    if (existing === null) {
+      await setSetting(setting.key, setting.value)
+    }
   }
 }

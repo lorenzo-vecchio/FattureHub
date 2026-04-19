@@ -73,15 +73,15 @@
       <div class="space-y-3">
         <p class="text-sm font-medium">Tema</p>
         <div class="flex gap-2">
-          {#each themes as theme}
-            {@const active = userPrefersMode.current === theme.value}
+          {#each themes as t}
+            {@const active = userPrefersMode.current === t.value}
             <Button
               variant={active ? 'default' : 'outline'}
               class="flex-1 flex-col h-auto py-3 gap-1.5"
-              onclick={() => selectTheme(theme.value)}
+              onclick={() => selectTheme(t.value)}
             >
-              <theme.icon class="h-4 w-4" />
-              <span class="text-xs">{theme.label}</span>
+              <t.icon class="h-4 w-4" />
+              <span class="text-xs">{t.label}</span>
             </Button>
           {/each}
         </div>

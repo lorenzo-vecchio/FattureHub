@@ -1,5 +1,4 @@
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { appDataDir, join } from '@tauri-apps/api/path';
+import { getSetting, setSetting } from './db-dexie';
 
 export interface AiConfig {
   enabled: boolean;
@@ -23,22 +22,18 @@ export const defaultAiConfig: AiConfig = {
   contextWindow: 0,
 };
 
-async function configPath(): Promise<string> {
-  const base = await appDataDir();
-  return join(base, 'ai-config.json');
-}
-
 export async function loadAiConfig(): Promise<AiConfig> {
   try {
-    const path = await configPath();
-    const raw = await readTextFile(path);
-    return { ...defaultAiConfig, ...JSON.parse(raw) } as AiConfig;
+    const configJson = await getSetting('aiConfig');
+    if (configJson) {
+      return { ...defaultAiConfig, ...JSON.parse(configJson) } as AiConfig;
+    }
+    return { ...defaultAiConfig };
   } catch {
     return { ...defaultAiConfig };
   }
 }
 
 export async function saveAiConfig(config: AiConfig): Promise<void> {
-  const path = await configPath();
-  await writeTextFile(path, JSON.stringify(config));
+  await setSetting('aiConfig', JSON.stringify(config));
 }
