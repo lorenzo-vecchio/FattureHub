@@ -53,7 +53,7 @@
     </div>
 
     <div class="flex items-center gap-2">
-       {#if aiEnabled}
+       {#if aiEnabled && fattureCount > 0}
         <Button
           variant={isAiRunning ? 'secondary' : 'ghost'}
           size="sm"
