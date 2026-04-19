@@ -26,6 +26,7 @@
   let loading = $state(false);
   let loadingProgress = $state({ done: 0, total: 0 });
   let errors = $state<string[]>([]);
+  let openingProject = $state(false);
 
   let filtrate = $derived(applyFilters(fatture, filters));
   let activeFilters = $derived(countActiveFilters(filters));
@@ -199,32 +200,38 @@
   }
 
   // ── Open project ──────────────────────────────────────────────────────────
-  function handleOpenProjectRequest(project: Project) {
-    projectsOpen = false;
+  async function handleOpenProjectRequest(project: Project) {
     if (isDirty) {
       pendingAction = { type: 'open', project };
       unsavedOpen = true;
+      projectsOpen = false;
     } else {
-      void doOpenProject(project);
+      await doOpenProject(project);
+      projectsOpen = false;
     }
   }
 
   async function doOpenProject(project: Project) {
-    // Clear existing invoices from database
-    await clearAllInvoices();
-    
-    // Save project invoices to database
-    for (const fattura of project.fatture) {
-      await saveInvoice(fattura)
+    openingProject = true;
+    try {
+      // Clear existing invoices from database
+      await clearAllInvoices();
+      
+      // Save project invoices to database
+      for (const fattura of project.fatture) {
+        await saveInvoice(fattura)
+      }
+      
+      // Load from database
+      fatture = await getAllInvoices();
+      filters = project.filters;
+      currentProject = { id: project.id, name: project.name };
+      errors = [];
+      await tick();
+      isDirty = false;
+    } finally {
+      openingProject = false;
     }
-    
-    // Load from database
-    fatture = await getAllInvoices();
-    filters = project.filters;
-    currentProject = { id: project.id, name: project.name };
-    errors = [];
-    await tick();
-    isDirty = false;
   }
 
   // ── Clear all ─────────────────────────────────────────────────────────────
@@ -345,11 +352,11 @@
 
   <div class="mx-auto max-w-7xl px-6 py-6">
 
-    {#if fatture.length === 0 && !loading}
+    {#if fatture.length === 0 && !loading && !openingProject}
       <UploadZone onfiles={processFiles} />
     {/if}
 
-    {#if loading}
+    {#if loading || openingProject}
       <LoadingCard done={loadingProgress.done} total={loadingProgress.total} />
     {/if}
 
@@ -357,7 +364,7 @@
       <ErrorsCard {errors} />
     {/if}
 
-    {#if fatture.length > 0 && !loading}
+    {#if fatture.length > 0 && !loading && !openingProject}
       <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
         <FiltersPanel {filters} {fatture} {activeFilters} onreset={resetFilters} />
         <FattureResults

@@ -10,7 +10,7 @@
 
   let { open = $bindable(false), onopen }: {
     open: boolean;
-    onopen: (project: Project) => void;
+    onopen: (project: Project) => Promise<void> | void;
   } = $props();
 
   let projects = $state<ProjectMeta[]>([]);
@@ -41,11 +41,10 @@
   async function handleOpen(id: string) {
     openingId = id;
     const project = await loadProject(id);
-    openingId = null;
     if (project) {
-      onopen(project);
-      open = false;
+      await onopen(project);
     }
+    openingId = null;
   }
 
   async function handleDelete(id: string) {
