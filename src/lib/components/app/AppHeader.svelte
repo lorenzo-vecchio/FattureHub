@@ -53,7 +53,7 @@
     </div>
 
     <div class="flex items-center gap-2">
-      {#if aiEnabled}
+       {#if aiEnabled}
         <Button
           variant={isAiRunning ? 'secondary' : 'ghost'}
           size="sm"
@@ -68,10 +68,12 @@
           AI
         </Button>
       {/if}
-      <Button variant="ghost" size="sm" onclick={onopenprojects}>
-        <FolderArchive class="mr-1.5 h-3.5 w-3.5" />
-        Progetti
-      </Button>
+      {#if fattureCount > 0}
+        <Button variant="ghost" size="sm" onclick={onopenprojects}>
+          <FolderArchive class="mr-1.5 h-3.5 w-3.5" />
+          Progetti
+        </Button>
+      {/if}
       <Button variant="ghost" size="icon" onclick={opensettings} title="Impostazioni">
         <Settings class="h-4 w-4" />
       </Button>
