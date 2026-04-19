@@ -1,4 +1,4 @@
-# Filtra Fatture Elettroniche
+# FattureHub
 
 Applicazione desktop per filtrare, visualizzare, analizzare ed esportare fatture elettroniche in formato **FatturaPA** (standard SDI italiano). Versione **1.1.1**.
 

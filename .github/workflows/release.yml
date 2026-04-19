@@ -61,7 +61,7 @@ jobs:
 
             **Metodo 1 (raccomandato):** Apri il Terminale ed esegui:
             ```
-            xattr -cr "/Applications/Filtra Fatture.app"
+            xattr -cr "/Applications/FattureHub.app"
             ```
             Poi apri normalmente l'app.
 

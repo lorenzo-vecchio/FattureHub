@@ -1,10 +1,10 @@
 [package]
-name = "filtra-fatture"
+name = "fatturehub"
 version = "1.1.1"
 description = "Applicazione desktop per filtrare, visualizzare ed esportare fatture elettroniche FatturaPA"
 authors = ["Lorenzo Giovanni Vecchio"]
 license = "Commons Clause + MIT"
-repository = "https://github.com/lorenzovecchio/filtra-fatture"
+repository = "https://github.com/lorenzovecchio/fatturehub"
 edition = "2021"
 rust-version = "1.77.2"
 
