@@ -7,6 +7,7 @@ export interface Project {
   id: string;
   name: string;
   savedAt: number;
+  lastOpenedAt?: number;
   fatture: Fattura[];
   filters: Filters;
 }
@@ -15,6 +16,7 @@ export interface ProjectMeta {
   id: string;
   name: string;
   savedAt: number;
+  lastOpenedAt?: number;
   count: number;
 }
 
@@ -34,6 +36,7 @@ export async function saveProject(name: string, fatture: Fattura[], filters: Fil
     id: crypto.randomUUID(),
     name,
     savedAt: Date.now(),
+    lastOpenedAt: Date.now(),
     fatture,
     filters,
   };
@@ -57,7 +60,13 @@ export async function loadProjectsMeta(): Promise<ProjectMeta[]> {
         const path = await projectPath(dir, entry.name.replace('.json', ''));
         const raw = await readTextFile(path);
         const p = JSON.parse(raw) as Project;
-        metas.push({ id: p.id, name: p.name, savedAt: p.savedAt, count: p.fatture.length });
+        metas.push({ 
+          id: p.id, 
+          name: p.name, 
+          savedAt: p.savedAt, 
+          lastOpenedAt: p.lastOpenedAt,
+          count: p.fatture.length 
+        });
       } catch {
         // skip corrupt files
       }
@@ -81,7 +90,7 @@ export async function loadProject(id: string): Promise<Project | null> {
 }
 
 export async function updateProject(id: string, name: string, fatture: Fattura[], filters: Filters): Promise<void> {
-  const project: Project = { id, name, savedAt: Date.now(), fatture, filters };
+  const project: Project = { id, name, savedAt: Date.now(), lastOpenedAt: Date.now(), fatture, filters };
   const dir = await projectsDir();
   const path = await projectPath(dir, id);
   await writeTextFile(path, JSON.stringify(project));

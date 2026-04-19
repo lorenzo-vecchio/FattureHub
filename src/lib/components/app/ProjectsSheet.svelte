@@ -33,10 +33,24 @@
     }
   });
 
-  const fmt = new Intl.DateTimeFormat('it-IT', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  function formatDate(timestamp: number): string {
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'oggi ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'ieri ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }) + ' ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    }
+  }
 
   async function handleOpen(id: string) {
     openingId = id;
@@ -84,14 +98,19 @@
             <div class="group flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/60">
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-medium">{project.name}</p>
-                <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                  <Badge variant="secondary" class="h-4 text-xs">
-                    {project.count} fatture
-                  </Badge>
-                  <span class="text-xs text-muted-foreground">
-                    {fmt.format(new Date(project.savedAt))}
-                  </span>
-                </div>
+                 <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                   <Badge variant="secondary" class="h-4 text-xs">
+                     {project.count} {project.count === 1 ? 'fattura' : 'fatture'}
+                   </Badge>
+                   <span class="text-xs text-muted-foreground">
+                     Creato: {formatDate(project.savedAt)}
+                   </span>
+                   {#if project.lastOpenedAt}
+                     <span class="text-xs text-muted-foreground">
+                       • Aperto: {formatDate(project.lastOpenedAt)}
+                     </span>
+                   {/if}
+                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <Button
