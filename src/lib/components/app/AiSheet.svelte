@@ -43,11 +43,26 @@
   let refining = $state(false);
   // Not $state — AbortController must NOT be proxied by Svelte or .abort() breaks
   let abortController: AbortController | null = null;
+  
+  let progressContainer = $state<HTMLDivElement | undefined>(undefined);
 
   function handleOpenChange(v: boolean) {
     open = v;
     if (v && projectId) void loadSaved();
   }
+  
+  // Auto-scroll progress container to bottom when relevant state changes
+  $effect(() => {
+    const container = progressContainer as HTMLDivElement | undefined;
+    // Track dependencies: scroll when container, progressSteps, running, or refining changes
+    const shouldScroll = container && (progressSteps.length > 0 || running || refining);
+    
+    if (shouldScroll) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  });
 
   async function loadSaved() {
     if (!projectId) return;
@@ -231,7 +246,7 @@
             {#if progressSteps.length > 0 || running || refining}
               <div class="space-y-1">
                 <p class="text-xs font-medium text-muted-foreground">Avanzamento</p>
-                <div class="rounded-md border bg-muted/30 px-3 py-2 space-y-1 max-h-36 overflow-y-auto">
+                 <div bind:this={progressContainer} class="rounded-md border bg-muted/30 px-3 py-2 space-y-1 max-h-36 overflow-y-auto">
                   {#each progressSteps as step}
                     <p class="text-xs text-muted-foreground flex items-center gap-1.5">
                       <ChevronRight class="h-3 w-3 shrink-0" />
