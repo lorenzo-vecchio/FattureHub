@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from '$lib/components/ui/button';
+  import * as Card from '$lib/components/ui/card';
+  import * as Dialog from '$lib/components/ui/dialog';
   import type { Fattura } from '$lib/parser';
   import { cedenteLabel } from '$lib/parser';
   import { downloadZip, downloadZipGrouped } from '$lib/zipper';
-  import { Button } from '$lib/components/ui/button';
-  import { Badge } from '$lib/components/ui/badge';
-  import * as Card from '$lib/components/ui/card';
-  import { Upload, Download, Funnel, RotateCcw, FolderOpen, Save } from 'lucide-svelte';
+  import { Download, FolderOpen, Funnel, RotateCcw, Save, Upload } from 'lucide-svelte';
   import FatturaDialog from './FatturaDialog.svelte';
 
   const fmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
@@ -21,6 +22,7 @@
   } = $props();
 
   let groupBy = $state<'' | 'cedente' | 'cessionario'>('');
+  let exportDialogOpen = $state(false);
 
   let selectedFattura = $state<Fattura | null>(null);
   let dialogOpen = $state(false);
@@ -46,6 +48,13 @@
     } else {
       downloadZipGrouped(filtrate, groupBy);
     }
+
+    exportDialogOpen = false;
+  }
+
+  function openExportDialog() {
+    if (filtrate.length === 0) return;
+    exportDialogOpen = true;
   }
 
   const groupByLabels = {
@@ -64,24 +73,6 @@
     </p>
 
     <div class="flex flex-wrap items-center gap-2">
-
-      <!-- Raggruppamento export -->
-      <div class="flex items-center gap-1">
-        <FolderOpen class="h-3.5 w-3.5 text-muted-foreground" />
-        <span class="text-xs text-muted-foreground">Raggruppa:</span>
-        {#each Object.entries(groupByLabels) as [v, l]}
-          <Button
-            variant={groupBy === v ? 'default' : 'outline'}
-            size="sm"
-            class="h-7 px-2.5 text-xs"
-            onclick={() => (groupBy = v as '' | 'cedente' | 'cessionario')}
-          >
-            {l}
-          </Button>
-        {/each}
-      </div>
-
-      <div class="h-5 w-px bg-border"></div>
 
       <!-- Aggiungi file -->
       <Button variant="outline" size="sm">
@@ -103,7 +94,7 @@
       </Button>
 
       <!-- Esporta ZIP -->
-      <Button size="sm" disabled={filtrate.length === 0} onclick={handleExport}>
+      <Button size="sm" disabled={filtrate.length === 0} onclick={openExportDialog}>
         <Download class="mr-2 h-3.5 w-3.5" />
         Esporta ZIP ({filtrate.length})
       </Button>
@@ -181,7 +172,7 @@
             <p class="text-xs opacity-70">Totale</p>
             <p class="text-sm font-semibold">{fmt.format(totaleDocumento)}</p>
           </div>
-          <Button variant="secondary" size="sm" onclick={handleExport}>
+          <Button variant="secondary" size="sm" onclick={openExportDialog}>
             <Download class="mr-2 h-3.5 w-3.5" />
             {groupBy === '' ? 'Esporta ZIP' : groupByLabels[groupBy]}
           </Button>
@@ -191,5 +182,45 @@
   {/if}
 
 </section>
+
+<Dialog.Root bind:open={exportDialogOpen}>
+  <Dialog.Content class="sm:max-w-115">
+    <Dialog.Header>
+      <Dialog.Title>Esporta ZIP</Dialog.Title>
+      <Dialog.Description>
+        Scegli come organizzare i file da esportare.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="space-y-3 py-2">
+      <p class="text-xs text-muted-foreground">Modalita export</p>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {#each Object.entries(groupByLabels) as [v, l]}
+          <Button
+            variant={groupBy === v ? 'default' : 'outline'}
+            size="sm"
+            class="justify-start"
+            onclick={() => (groupBy = v as '' | 'cedente' | 'cessionario')}
+          >
+            {#if v === ''}
+              <Download class="mr-2 h-3.5 w-3.5" />
+            {:else}
+              <FolderOpen class="mr-2 h-3.5 w-3.5" />
+            {/if}
+            {l}
+          </Button>
+        {/each}
+      </div>
+    </div>
+
+    <Dialog.Footer>
+      <Button variant="outline" onclick={() => (exportDialogOpen = false)}>Annulla</Button>
+      <Button onclick={handleExport}>
+        <Download class="mr-2 h-3.5 w-3.5" />
+        {groupBy === '' ? 'Esporta ZIP' : groupByLabels[groupBy]}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
 
 <FatturaDialog fattura={selectedFattura} bind:open={dialogOpen} />
