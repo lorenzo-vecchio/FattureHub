@@ -1,9 +1,9 @@
 <script lang="ts">
-  import * as Dialog from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
+  import * as Dialog from '$lib/components/ui/dialog';
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
-  import { Save, Loader } from 'lucide-svelte';
+  import { Loader, Save } from 'lucide-svelte';
 
   let { open = $bindable(false), onsave }: {
     open: boolean;
@@ -50,7 +50,7 @@
         Salva progetto
       </Dialog.Title>
       <Dialog.Description>
-        Le fatture e i filtri attivi vengono salvati su disco come file JSON.
+        Le fatture e i filtri attivi vengono salvati nel database locale dell'app.
       </Dialog.Description>
     </Dialog.Header>
     <div class="space-y-2 py-2">

@@ -14,7 +14,13 @@
 </script>
 
 {#if app.loading || app.openingProject}
-  <LoadingCard done={app.loadingProgress.done} total={app.loadingProgress.total} />
+  <LoadingCard
+    parsingDone={app.loadingProgress.parsingDone}
+    parsingTotal={app.loadingProgress.parsingTotal}
+    savingDone={app.loadingProgress.savingDone}
+    savingTotal={app.loadingProgress.savingTotal}
+    stage={app.loadingProgress.stage}
+  />
 
 {:else if app.projectsList.length === 0}
   <UploadZone onfiles={app.processFiles} />

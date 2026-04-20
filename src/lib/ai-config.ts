@@ -1,4 +1,4 @@
-import { getSetting, setSetting } from './db-dexie';
+import { getSetting, setSetting } from './db-sqlite';
 
 export interface AiConfig {
   enabled: boolean;

@@ -1,5 +1,5 @@
-import { mkdir, readTextFile, writeTextFile, readDir, remove } from '@tauri-apps/plugin-fs';
-import { appDataDir, join } from '@tauri-apps/api/path';
+import Database from '@tauri-apps/plugin-sql';
+import { ensureSchema } from './db-sqlite';
 
 export interface TextBlock {
   type: 'text';
@@ -23,42 +23,82 @@ export interface Report {
   blocks: ReportBlock[];
 }
 
-async function reportsDir(projectId: string): Promise<string> {
-  const base = await appDataDir();
-  const dir = await join(base, 'reports', projectId);
-  await mkdir(dir, { recursive: true });
-  return dir;
+type DbRow = Record<string, unknown>;
+
+let dbPromise: Promise<Database> | null = null;
+
+async function getDb(): Promise<Database> {
+  if (!dbPromise) {
+    dbPromise = Database.load('sqlite:fatturehub.db');
+  }
+  return dbPromise;
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function asNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
 }
 
 export async function saveReport(report: Report): Promise<void> {
-  const dir = await reportsDir(report.projectId);
-  const path = await join(dir, `${report.id}.json`);
-  await writeTextFile(path, JSON.stringify(report));
+  await ensureSchema();
+  const db = await getDb();
+  await db.execute(
+    `
+      INSERT INTO reports (id, project_id, created_at, prompt, blocks_json)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        created_at = excluded.created_at,
+        prompt = excluded.prompt,
+        blocks_json = excluded.blocks_json
+    `,
+    [report.id, report.projectId, report.createdAt, report.prompt, JSON.stringify(report.blocks)]
+  );
 }
 
 export async function loadReports(projectId: string): Promise<Report[]> {
   try {
-    const dir = await reportsDir(projectId);
-    const entries = await readDir(dir);
-    const reports: Report[] = [];
-    for (const entry of entries) {
-      if (!entry.name?.endsWith('.json')) continue;
+    await ensureSchema();
+    const db = await getDb();
+    const rows = (await db.select<DbRow[]>(
+      'SELECT id, project_id, created_at, prompt, blocks_json FROM reports WHERE project_id = $1 ORDER BY created_at DESC',
+      [projectId]
+    )) as DbRow[];
+
+    const reports: Report[] = rows.map((row) => {
+      let blocks: ReportBlock[] = [];
       try {
-        const path = await join(dir, entry.name);
-        const raw = await readTextFile(path);
-        reports.push(JSON.parse(raw) as Report);
+        const parsed = JSON.parse(asString(row.blocks_json)) as ReportBlock[];
+        blocks = Array.isArray(parsed) ? parsed : [];
       } catch {
-        // skip corrupt files
+        blocks = [];
       }
-    }
-    return reports.sort((a, b) => b.createdAt - a.createdAt);
+
+      return {
+        id: asString(row.id),
+        projectId: asString(row.project_id),
+        createdAt: asNumber(row.created_at),
+        prompt: asString(row.prompt),
+        blocks,
+      };
+    });
+
+    return reports;
   } catch {
     return [];
   }
 }
 
 export async function deleteReport(projectId: string, reportId: string): Promise<void> {
-  const dir = await reportsDir(projectId);
-  const path = await join(dir, `${reportId}.json`);
-  await remove(path);
+  await ensureSchema();
+  const db = await getDb();
+  await db.execute('DELETE FROM reports WHERE project_id = $1 AND id = $2', [projectId, reportId]);
 }

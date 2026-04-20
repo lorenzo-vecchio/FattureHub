@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { setMode, resetMode, userPrefersMode } from 'mode-watcher';
-  import * as Sheet from '$lib/components/ui/sheet';
+  import { defaultAiConfig, loadAiConfig, saveAiConfig, type AiConfig } from '$lib/ai-config';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
   import { Separator } from '$lib/components/ui/separator';
-  import { Settings, Sun, Moon, Monitor, Check, Archive } from 'lucide-svelte';
-  import { loadAiConfig, saveAiConfig, defaultAiConfig, type AiConfig } from '$lib/ai-config';
-  import { getSetting, setSetting } from '$lib/db-dexie';
+  import * as Sheet from '$lib/components/ui/sheet';
+  import { getSetting, setSetting } from '$lib/db-sqlite';
+  import { Check, Monitor, Moon, Settings, Sun } from 'lucide-svelte';
+  import { resetMode, setMode, userPrefersMode } from 'mode-watcher';
 
   let {
     open = $bindable(false),

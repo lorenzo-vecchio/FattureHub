@@ -48,6 +48,7 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_process::init())
+    .plugin(tauri_plugin_sql::Builder::default().build())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

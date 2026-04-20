@@ -11,14 +11,15 @@ import {
   getAllInvoices,
   getSetting,
   initializeDatabase,
-  saveInvoice,
-} from '$lib/db-dexie';
+  saveInvoicesBatch,
+} from '$lib/db-sqlite';
 import { applyFilters, countActiveFilters, emptyFilters } from '$lib/filters';
 import { extractXmlFromP7m, parseXml, type Fattura } from '$lib/parser';
 import {
   loadProject,
   loadProjectsMeta,
   saveProject,
+  touchProjectLastOpened,
   updateProject,
   type Project,
   type ProjectMeta,
@@ -26,12 +27,26 @@ import {
 import JSZip from 'jszip';
 import { tick } from 'svelte';
 
+type LoadingProgress = {
+  parsingDone: number;
+  parsingTotal: number;
+  savingDone: number;
+  savingTotal: number;
+  stage: 'idle' | 'parsing' | 'saving';
+};
+
 function createAppStore() {
   // ── Core ──────────────────────────────────────────────────────────────────
   let fatture = $state<Fattura[]>([]);
   let filters = $state(emptyFilters());
   let loading = $state(false);
-  let loadingProgress = $state({ done: 0, total: 0 });
+  let loadingProgress = $state<LoadingProgress>({
+    parsingDone: 0,
+    parsingTotal: 0,
+    savingDone: 0,
+    savingTotal: 0,
+    stage: 'idle',
+  });
   let errors = $state<string[]>([]);
   let openingProject = $state(false);
 
@@ -160,53 +175,95 @@ function createAppStore() {
   async function processFiles(files: File[]) {
     loading = true;
     errors = [];
+    loadingProgress = {
+      parsingDone: 0,
+      parsingTotal: 0,
+      savingDone: 0,
+      savingTotal: 0,
+      stage: 'parsing',
+    };
     const xmlFiles: { name: string; text: string }[] = [];
 
-    for (const file of files) {
-      if (file.name.endsWith('.zip')) {
-        const zip = await JSZip.loadAsync(file);
-        for (const [path, entry] of Object.entries(zip.files)) {
-          if (entry.dir || isMacMeta(path)) continue;
-          const lower = path.toLowerCase();
-          const name = path.split('/').pop() ?? path;
-          if (lower.endsWith('.xml')) {
-            xmlFiles.push({ name, text: await entry.async('string') });
-          } else if (lower.endsWith('.p7m')) {
-            try {
-              xmlFiles.push({ name, text: extractXmlFromP7m(await entry.async('arraybuffer')) });
-            } catch (e) {
-              errors = [...errors, `${name}: ${e}`];
+    try {
+      for (const file of files) {
+        if (file.name.endsWith('.zip')) {
+          const zip = await JSZip.loadAsync(file);
+          for (const [path, entry] of Object.entries(zip.files)) {
+            if (entry.dir || isMacMeta(path)) continue;
+            const lower = path.toLowerCase();
+            const name = path.split('/').pop() ?? path;
+            if (lower.endsWith('.xml')) {
+              xmlFiles.push({ name, text: await entry.async('string') });
+            } else if (lower.endsWith('.p7m')) {
+              try {
+                xmlFiles.push({ name, text: extractXmlFromP7m(await entry.async('arraybuffer')) });
+              } catch (e) {
+                errors = [...errors, `${name}: ${e}`];
+              }
             }
           }
-        }
-      } else if (file.name.toLowerCase().endsWith('.xml') && !isMacMeta(file.name)) {
-        xmlFiles.push({ name: file.name, text: await file.text() });
-      } else if (file.name.toLowerCase().endsWith('.p7m') && !isMacMeta(file.name)) {
-        try {
-          xmlFiles.push({ name: file.name, text: extractXmlFromP7m(await file.arrayBuffer()) });
-        } catch (e) {
-          errors = [...errors, `${file.name}: ${e}`];
+        } else if (file.name.toLowerCase().endsWith('.xml') && !isMacMeta(file.name)) {
+          xmlFiles.push({ name: file.name, text: await file.text() });
+        } else if (file.name.toLowerCase().endsWith('.p7m') && !isMacMeta(file.name)) {
+          try {
+            xmlFiles.push({ name: file.name, text: extractXmlFromP7m(await file.arrayBuffer()) });
+          } catch (e) {
+            errors = [...errors, `${file.name}: ${e}`];
+          }
         }
       }
-    }
 
-    loadingProgress = { done: 0, total: xmlFiles.length };
-    const parsed: Fattura[] = [];
-    for (const { name, text } of xmlFiles) {
-      const f = parseXml(name, text);
-      if (f) parsed.push(f);
-      else errors.push(name);
-      loadingProgress.done++;
-    }
+      loadingProgress = {
+        ...loadingProgress,
+        parsingDone: 0,
+        parsingTotal: xmlFiles.length,
+      };
+      const parsed: Fattura[] = [];
+      for (const { name, text } of xmlFiles) {
+        const f = parseXml(name, text);
+        if (f) parsed.push(f);
+        else errors.push(name);
+        loadingProgress = {
+          ...loadingProgress,
+          parsingDone: loadingProgress.parsingDone + 1,
+        };
+      }
 
-    if (parsed.length > 0) {
-      const compressedFilePath = await compressAndSaveFiles(parsed);
-      for (const fattura of parsed) await saveInvoice(fattura, compressedFilePath);
-      fatture = await getAllInvoices();
-      importDialogOpen = false;
+      if (parsed.length > 0) {
+        const compressedFilePath = await compressAndSaveFiles(parsed);
+        const projectId = currentProject?.id ?? null;
+        loadingProgress = {
+          ...loadingProgress,
+          stage: 'saving',
+          savingDone: 0,
+          savingTotal: parsed.length,
+        };
+        await saveInvoicesBatch(
+          parsed,
+          compressedFilePath,
+          projectId,
+          40,
+          (savedCount, totalCount) => {
+            loadingProgress = {
+              ...loadingProgress,
+              stage: 'saving',
+              savingDone: savedCount,
+              savingTotal: totalCount,
+            };
+          }
+        );
+        fatture = await getAllInvoices(projectId);
+        importDialogOpen = false;
+      }
+    } catch (error) {
+      errors = [...errors, `Errore durante l'importazione: ${error}`];
+    } finally {
+      loading = false;
+      loadingProgress = {
+        ...loadingProgress,
+        stage: 'idle',
+      };
     }
-
-    loading = false;
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -232,16 +289,13 @@ function createAppStore() {
   async function doOpenProject(project: Project) {
     openingProject = true;
     try {
-      await clearAllInvoices();
-      for (const fattura of project.fatture) await saveInvoice(fattura);
-      fatture = await getAllInvoices();
+      fatture = await getAllInvoices(project.id);
       filters = project.filters;
       currentProject = { id: project.id, name: project.name };
       errors = [];
       await tick();
       isDirty = false;
-      project.lastOpenedAt = Date.now();
-      await updateProject(project.id, project.name, project.fatture, project.filters);
+      await touchProjectLastOpened(project.id);
       await refreshProjectsList();
     } finally {
       openingProject = false;
@@ -281,7 +335,9 @@ function createAppStore() {
   }
 
   async function doClearAll() {
-    await clearAllInvoices();
+    if (!currentProject) {
+      await clearAllInvoices(null);
+    }
     fatture = [];
     filters = emptyFilters();
     errors = [];

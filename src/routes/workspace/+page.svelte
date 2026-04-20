@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import FiltersPanel from '$lib/components/app/FiltersPanel.svelte';
   import FattureResults from '$lib/components/app/FattureResults.svelte';
+  import FiltersPanel from '$lib/components/app/FiltersPanel.svelte';
   import LoadingCard from '$lib/components/app/LoadingCard.svelte';
   import { app } from '$lib/stores/app.svelte';
 
@@ -14,7 +14,13 @@
 </script>
 
 {#if app.loading || app.openingProject}
-  <LoadingCard done={app.loadingProgress.done} total={app.loadingProgress.total} />
+  <LoadingCard
+    parsingDone={app.loadingProgress.parsingDone}
+    parsingTotal={app.loadingProgress.parsingTotal}
+    savingDone={app.loadingProgress.savingDone}
+    savingTotal={app.loadingProgress.savingTotal}
+    stage={app.loadingProgress.stage}
+  />
 
 {:else}
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
