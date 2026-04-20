@@ -1,4 +1,5 @@
 export interface Fattura {
+  id?: string;
   fileName: string;
   rawXml: string;
   // Header

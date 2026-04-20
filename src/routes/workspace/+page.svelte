@@ -38,6 +38,7 @@
       onaddfile={app.processFiles}
       onreset={app.resetFilters}
       onsave={app.handleSaveClick}
+      removeInvoice={app.handleRemoveInvoice}
     />
   </div>
 {/if}

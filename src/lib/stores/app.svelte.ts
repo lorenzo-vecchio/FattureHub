@@ -8,6 +8,7 @@
 import { defaultAiConfig, loadAiConfig, type AiConfig } from '$lib/ai-config';
 import {
     clearAllInvoices,
+    deleteInvoice,
     getAllInvoices,
     getSetting,
     initializeDatabase,
@@ -395,6 +396,18 @@ function createAppStore() {
     filters = emptyFilters();
   }
 
+  async function handleRemoveInvoice(fattura: Fattura): Promise<void> {
+    if (!fattura.id) return;
+
+    try {
+      await deleteInvoice(fattura.id);
+      const projectId = currentProject?.id ?? null;
+      fatture = await getAllInvoices(projectId);
+    } catch (error) {
+      errors = [...errors, `Errore durante la rimozione della fattura: ${error}`];
+    }
+  }
+
   // ── Unsaved-changes dialog ────────────────────────────────────────────────
   async function handleUnsavedSave(name?: string): Promise<void> {
     if (currentProject) {
@@ -495,6 +508,7 @@ function createAppStore() {
     handleOpenProjectRequest,
     handleOpenProjectFromList,
     handleClearClick,
+    handleRemoveInvoice,
     resetFilters,
     handleUnsavedSave,
     handleUnsavedDiscard,

@@ -11,7 +11,7 @@
 
   const fmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
 
-  let { filtrate, fattureCount, isDirty, currentProjectName, onaddfile, onreset, onsave }: {
+  let { filtrate, fattureCount, isDirty, currentProjectName, onaddfile, onreset, onsave, removeInvoice }: {
     filtrate: Fattura[];
     fattureCount: number;
     isDirty: boolean;
@@ -19,6 +19,7 @@
     onaddfile: (files: File[]) => void;
     onreset: () => void;
     onsave: () => void;
+    removeInvoice: (fattura: Fattura) => Promise<void>;
   } = $props();
 
   let groupBy = $state<'' | 'cedente' | 'cessionario'>('');
@@ -67,7 +68,7 @@
 <section class="space-y-3">
 
   <!-- Toolbar -->
-  <div class="flex flex-wrap items-center justify-between gap-2">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
     <p class="text-sm text-muted-foreground">
       <span class="font-medium text-foreground">{filtrate.length}</span> risultati su {fattureCount}
     </p>
@@ -152,7 +153,7 @@
           </div>
         </Card.Content>
       </Card.Root>
-      <div class="m-10"></div>
+      <div class="m-3"></div>
     {/each}
 
     <!-- Totali -->
@@ -223,4 +224,4 @@
   </Dialog.Content>
 </Dialog.Root>
 
-<FatturaDialog fattura={selectedFattura} bind:open={dialogOpen} />
+<FatturaDialog fattura={selectedFattura} bind:open={dialogOpen} onremove={removeInvoice} />

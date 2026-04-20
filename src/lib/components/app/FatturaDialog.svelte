@@ -1,18 +1,21 @@
 <script lang="ts">
-  import type { Fattura } from '$lib/parser';
-  import { cedenteLabel, cessionarioLabel } from '$lib/parser';
-  import * as Dialog from '$lib/components/ui/dialog';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
+  import * as Dialog from '$lib/components/ui/dialog';
   import { Separator } from '$lib/components/ui/separator';
-  import { Download, Building2, User, FileText, ArrowLeftRight } from 'lucide-svelte';
+  import type { Fattura } from '$lib/parser';
+  import { cedenteLabel, cessionarioLabel } from '$lib/parser';
+  import { ArrowLeftRight, Building2, Download, FileText, Trash2, User } from 'lucide-svelte';
 
   const fmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
 
-  let { fattura, open = $bindable(false) }: {
+  let { fattura, open = $bindable(false), onremove }: {
     fattura: Fattura | null;
     open: boolean;
+    onremove?: (fattura: Fattura) => Promise<void>;
   } = $props();
+
+  let removing = $state(false);
 
   function downloadXml() {
     if (!fattura) return;
@@ -23,6 +26,21 @@
     a.download = fattura.fileName;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleRemove() {
+    if (!fattura || !onremove || !fattura.id || removing) return;
+
+    const confirmed = confirm('Vuoi rimuovere questa fattura dal progetto?');
+    if (!confirmed) return;
+
+    removing = true;
+    try {
+      await onremove(fattura);
+      open = false;
+    } finally {
+      removing = false;
+    }
   }
 </script>
 
@@ -224,6 +242,15 @@
         <Button variant="outline" size="sm" onclick={downloadXml}>
           <Download class="mr-2 h-3.5 w-3.5" />
           Scarica XML
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={!fattura.id || removing}
+          onclick={handleRemove}
+        >
+          <Trash2 class="mr-2 h-3.5 w-3.5" />
+          {removing ? 'Rimozione...' : 'Rimuovi fattura'}
         </Button>
         <Dialog.Close>
           <Button size="sm">Chiudi</Button>

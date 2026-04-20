@@ -127,6 +127,7 @@ function mapInvoiceRow(row: DbRow, lineeDettaglio: DettaglioLinea[]): Fattura {
   const descrizioni = lineeDettaglio.map((line) => line.descrizione).filter(Boolean)
 
   return {
+    id: asString(row.id),
     fileName: asString(row.file_name),
     rawXml: asString(row.raw_xml),
     progressivoInvio: asString(row.progressivo_invio),
