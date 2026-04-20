@@ -7,6 +7,7 @@
   import { Separator } from '$lib/components/ui/separator';
   import { FolderOpen, Trash2, FolderArchive, Loader } from 'lucide-svelte';
   import type { Project } from '$lib/projects';
+  import { formatDateWithTime } from '$lib/utils/date';
 
   let { open = $bindable(false), onopen }: {
     open: boolean;
@@ -33,24 +34,6 @@
     }
   });
 
-  function formatDate(timestamp: number): string {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === today.toDateString()) {
-      return 'oggi ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'ieri ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-    } else {
-      return date.toLocaleDateString('it-IT', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      }) + ' ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-    }
-  }
 
   async function handleOpen(id: string) {
     openingId = id;
@@ -103,11 +86,11 @@
                      {project.count} {project.count === 1 ? 'fattura' : 'fatture'}
                    </Badge>
                    <span class="text-xs text-muted-foreground">
-                     Creato: {formatDate(project.savedAt)}
+                     Creato: {formatDateWithTime(project.savedAt)}
                    </span>
                    {#if project.lastOpenedAt}
                      <span class="text-xs text-muted-foreground">
-                       • Aperto: {formatDate(project.lastOpenedAt)}
+                       • Aperto: {formatDateWithTime(project.lastOpenedAt)}
                      </span>
                    {/if}
                  </div>
