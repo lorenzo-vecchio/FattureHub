@@ -194,7 +194,12 @@
     </Dialog.Header>
 
     <div class="space-y-3 py-2">
-      <p class="text-xs text-muted-foreground">Modalita export</p>
+      <p class="text-xs text-muted-foreground">Modalità export:</p>
+      <p class="text-xs text-muted-foreground/90 mb-3">
+        <span class="font-medium text-foreground">Flat</span> esporta tutti i file nella stessa cartella ZIP;<br>
+        <span class="font-medium text-foreground"> Per fornitore</span> crea una cartella per ogni cedente;<br>
+        <span class="font-medium text-foreground"> Per cliente</span> crea una cartella per ogni cessionario.
+      </p>
       <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {#each Object.entries(groupByLabels) as [v, l]}
           <Button
