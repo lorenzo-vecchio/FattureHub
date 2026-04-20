@@ -7,22 +7,23 @@
 
 import { defaultAiConfig, loadAiConfig, type AiConfig } from '$lib/ai-config';
 import {
-  clearAllInvoices,
-  getAllInvoices,
-  getSetting,
-  initializeDatabase,
-  saveInvoicesBatch,
+    clearAllInvoices,
+    getAllInvoices,
+    getSetting,
+    initializeDatabase,
+    saveInvoicesBatch,
 } from '$lib/db-sqlite';
+import type { Filters } from '$lib/filters';
 import { applyFilters, countActiveFilters, emptyFilters } from '$lib/filters';
 import { extractXmlFromP7m, parseXml, type Fattura } from '$lib/parser';
 import {
-  loadProject,
-  loadProjectsMeta,
-  saveProject,
-  touchProjectLastOpened,
-  updateProject,
-  type Project,
-  type ProjectMeta,
+    loadProject,
+    loadProjectsMeta,
+    saveProject,
+    touchProjectLastOpened,
+    updateProject,
+    type Project,
+    type ProjectMeta,
 } from '$lib/projects';
 import JSZip from 'jszip';
 import { tick } from 'svelte';
@@ -34,6 +35,27 @@ type LoadingProgress = {
   savingTotal: number;
   stage: 'idle' | 'parsing' | 'saving';
 };
+
+type SavedState = {
+  fattureCount: number;
+  filtersSignature: string;
+};
+
+function normalizeFiltersSignature(filters: Filters): string {
+  return JSON.stringify({
+    dataFrom: filters.dataFrom,
+    dataTo: filters.dataTo,
+    fornitori: [...filters.fornitori].sort(),
+    clienti: [...filters.clienti].sort(),
+    importoMin: filters.importoMin,
+    importoMax: filters.importoMax,
+    tipoDocumento: [...filters.tipoDocumento].sort(),
+    regimeFiscale: filters.regimeFiscale,
+    numero: filters.numero,
+    formatoTrasmissione: filters.formatoTrasmissione,
+    testoLibero: filters.testoLibero,
+  });
+}
 
 function createAppStore() {
   // ── Core ──────────────────────────────────────────────────────────────────
@@ -56,6 +78,24 @@ function createAppStore() {
   // ── Project ───────────────────────────────────────────────────────────────
   let currentProject = $state<{ id: string; name: string } | null>(null);
   let isDirty = $state(false);
+  let savedState = $state<SavedState>({
+    fattureCount: 0,
+    filtersSignature: normalizeFiltersSignature(emptyFilters()),
+  });
+
+  function syncSavedState() {
+    savedState = {
+      fattureCount: fatture.length,
+      filtersSignature: normalizeFiltersSignature(filters),
+    };
+  }
+
+  function computeIsDirty() {
+    return (
+      fatture.length !== savedState.fattureCount ||
+      normalizeFiltersSignature(filters) !== savedState.filtersSignature
+    );
+  }
 
   // ── AI ────────────────────────────────────────────────────────────────────
   let isAiRunning = $state(false);
@@ -101,7 +141,8 @@ function createAppStore() {
     // Re-mark dirty whenever fatture or any filter field changes.
     $effect(() => {
       void JSON.stringify(filters);
-      isDirty = fatture.length > 0;
+      void fatture.length;
+      isDirty = computeIsDirty();
     });
 
     // Sync the macOS traffic-light close-button dot (•).
@@ -275,12 +316,14 @@ function createAppStore() {
   async function handleQuickSave() {
     if (!currentProject) return;
     await updateProject(currentProject.id, currentProject.name, fatture, filters);
+    syncSavedState();
     isDirty = false;
   }
 
   async function handleSaveNewProject(name: string): Promise<void> {
     const saved = await saveProject(name, fatture, filters);
     currentProject = { id: saved.id, name: saved.name };
+    syncSavedState();
     isDirty = false;
     projectsList = await loadProjectsMeta();
   }
@@ -294,6 +337,7 @@ function createAppStore() {
       currentProject = { id: project.id, name: project.name };
       errors = [];
       await tick();
+      syncSavedState();
       isDirty = false;
       await touchProjectLastOpened(project.id);
       await refreshProjectsList();
@@ -342,6 +386,7 @@ function createAppStore() {
     filters = emptyFilters();
     errors = [];
     currentProject = null;
+    syncSavedState();
     isDirty = false;
     projectsList = await loadProjectsMeta();
   }
@@ -354,6 +399,7 @@ function createAppStore() {
   async function handleUnsavedSave(name?: string): Promise<void> {
     if (currentProject) {
       await updateProject(currentProject.id, currentProject.name, fatture, filters);
+      syncSavedState();
       isDirty = false;
     } else if (name) {
       await handleSaveNewProject(name);
