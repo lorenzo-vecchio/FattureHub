@@ -29,7 +29,7 @@ Applicazione desktop per filtrare, visualizzare, analizzare ed esportare fatture
 
 ### Analisi AI
 - **Report AI** generati da un agente multi-fase che analizza le fatture caricate
-- Supporto a modelli **Anthropic** (Claude) e **OpenAI** (GPT) configurabili
+- Supporto a modelli **Anthropic** (Claude e compatibili) e **OpenAI** (GPT e compatibili) configurabili
 - Possibilità di configurare modelli separati per orchestratore e task
 - **Conversazione continuativa**: raffina i report con domande successive nella stessa sessione
 - Report salvati per progetto e visualizzati con rendering Markdown
