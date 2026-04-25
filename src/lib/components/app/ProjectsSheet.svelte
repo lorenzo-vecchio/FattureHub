@@ -1,13 +1,10 @@
 <script lang="ts">
-  import { loadProjectsMeta, loadProject, deleteProject, type ProjectMeta } from '$lib/projects';
   import * as Sheet from '$lib/components/ui/sheet';
-  import * as ScrollArea from '$lib/components/ui/scroll-area';
-  import { Button } from '$lib/components/ui/button';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Separator } from '$lib/components/ui/separator';
-  import { FolderOpen, Trash2, FolderArchive, Loader } from 'lucide-svelte';
   import type { Project } from '$lib/projects';
-  import { formatDateWithTime } from '$lib/utils/date';
+  import { deleteProject, loadProject, loadProjectsMeta, type ProjectMeta } from '$lib/projects';
+  import { FolderArchive, Loader } from 'lucide-svelte';
+  import ProjectsSheetEmptyState from './projects-sheet/ProjectsSheetEmptyState.svelte';
+  import ProjectsSheetList from './projects-sheet/ProjectsSheetList.svelte';
 
   let { open = $bindable(false), onopen }: {
     open: boolean;
@@ -67,61 +64,14 @@
         <Loader class="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     {:else if projects.length === 0}
-      <div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-        <FolderOpen class="h-10 w-10 text-muted-foreground/40" />
-        <p class="text-sm text-muted-foreground">Nessun progetto salvato.</p>
-        <p class="text-xs text-muted-foreground/70">
-          Carica delle fatture e usa il pulsante <strong>Salva</strong> per creare un progetto.
-        </p>
-      </div>
+      <ProjectsSheetEmptyState />
     {:else}
-      <ScrollArea.Root class="flex-1">
-        <div class="space-y-px px-3 py-3">
-          {#each projects as project (project.id)}
-            <div class="group flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/60">
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-medium">{project.name}</p>
-                 <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                   <Badge variant="secondary" class="h-4 text-xs">
-                     {project.count} {project.count === 1 ? 'fattura' : 'fatture'}
-                   </Badge>
-                   <span class="text-xs text-muted-foreground">
-                     Creato: {formatDateWithTime(project.savedAt)}
-                   </span>
-                   {#if project.lastOpenedAt}
-                     <span class="text-xs text-muted-foreground">
-                       • Aperto: {formatDateWithTime(project.lastOpenedAt)}
-                     </span>
-                   {/if}
-                 </div>
-              </div>
-              <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="h-7 w-7"
-                  onclick={() => handleDelete(project.id)}
-                  title="Elimina"
-                >
-                  <Trash2 class="h-3.5 w-3.5 text-destructive" />
-                </Button>
-                <Button
-                  size="sm"
-                  class="h-7 text-xs"
-                  disabled={openingId === project.id}
-                  onclick={() => handleOpen(project.id)}
-                >
-                  {#if openingId === project.id}
-                    <Loader class="mr-1.5 h-3 w-3 animate-spin" />
-                  {/if}
-                  Apri
-                </Button>
-              </div>
-            </div>
-            <Separator class="mx-3" />
-          {/each}
-        </div>
-      </ScrollArea.Root>
+      <ProjectsSheetList
+        {projects}
+        {openingId}
+        removeProject={handleDelete}
+        openProject={handleOpen}
+      />
     {/if}
   </Sheet.Content>
 </Sheet.Root>

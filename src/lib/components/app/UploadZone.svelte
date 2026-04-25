@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
   import * as Card from '$lib/components/ui/card';
-  import { Upload, FolderOpen } from 'lucide-svelte';
+  import { Upload } from 'lucide-svelte';
+  import UploadZoneActions from './upload/UploadZoneActions.svelte';
 
   let { onfiles }: { onfiles: (files: File[]) => void } = $props();
 
@@ -40,12 +40,6 @@
     return all;
   }
 
-  function handleInput(e: Event) {
-    const input = e.target as HTMLInputElement;
-    if (input.files) onfiles(Array.from(input.files));
-    input.value = '';
-  }
-
   async function onDrop(e: DragEvent) {
     e.preventDefault();
     dragOver = false;
@@ -79,21 +73,6 @@
       <p class="text-lg font-medium">Trascina una cartella o un file ZIP</p>
       <p class="mt-1 text-sm text-muted-foreground">Supporta file .xml, .p7m (XML firmato) e archivi .zip contenenti fatture FatturaPA</p>
     </div>
-    <div class="flex gap-3">
-      <Button variant="outline">
-        <label class="cursor-pointer flex flex-row">
-          <FolderOpen class="mr-2 h-4 w-4" />
-          Scegli cartella
-          <input type="file" class="sr-only" webkitdirectory multiple onchange={handleInput} />
-        </label>
-      </Button>
-      <Button variant="outline">
-        <label class="cursor-pointer flex flex-row">
-          <Upload class="mr-2 h-4 w-4" />
-          Scegli file
-          <input type="file" class="sr-only" multiple accept=".xml,.p7m,.zip" onchange={handleInput} />
-        </label>
-      </Button>
-    </div>
+    <UploadZoneActions selectFiles={onfiles} />
   </Card.Content>
 </Card.Root>

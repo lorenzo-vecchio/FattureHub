@@ -2,11 +2,11 @@
   import type { Fattura } from '$lib/parser';
   import { downloadZip, downloadZipGrouped } from '$lib/zipper';
   import FatturaDialog from './FatturaDialog.svelte';
-  import FatturaListItem from './FatturaListItem.svelte';
   import FattureEmptyState from './FattureEmptyState.svelte';
   import FattureExportDialog from './FattureExportDialog.svelte';
   import FattureResultsToolbar from './FattureResultsToolbar.svelte';
   import FattureTotals from './FattureTotals.svelte';
+  import FattureResultsList from './results/FattureResultsList.svelte';
 
   let { filtrate, fattureCount, isDirty, currentProjectName, onaddfile, onreset, onsave, removeInvoice }: {
     filtrate: Fattura[];
@@ -71,10 +71,7 @@
   {#if filtrate.length === 0}
     <FattureEmptyState {onreset} />
   {:else}
-    {#each filtrate as fat}
-      <FatturaListItem fat={fat} onopen={() => openDetail(fat)} />
-      <div class="m-3"></div>
-    {/each}
+    <FattureResultsList invoices={filtrate} openInvoice={openDetail} />
 
     <FattureTotals
       selectedCount={filtrate.length}

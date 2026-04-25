@@ -1,17 +1,21 @@
 <script lang="ts">
-  import * as Sheet from '$lib/components/ui/sheet';
-  import * as Dialog from '$lib/components/ui/dialog';
-  import { Button } from '$lib/components/ui/button';
-  import { Separator } from '$lib/components/ui/separator';
-  import { Sparkles, Loader, Save, Trash2, ChevronRight, Send, Download, Square } from 'lucide-svelte';
-  import type { ModelMessage } from 'ai';
-  import type { Fattura } from '$lib/parser';
+  import { runAiAgent } from '$lib/ai-agent';
   import type { AiConfig } from '$lib/ai-config';
   import type { Report } from '$lib/ai-reports';
-  import { saveReport, loadReports, deleteReport } from '$lib/ai-reports';
-  import { runAiAgent } from '$lib/ai-agent';
+  import { deleteReport, loadReports, saveReport } from '$lib/ai-reports';
+  import { Separator } from '$lib/components/ui/separator';
+  import * as Sheet from '$lib/components/ui/sheet';
   import { exportReportToDocx } from '$lib/export-docx';
+  import type { Fattura } from '$lib/parser';
+  import type { ModelMessage } from 'ai';
+  import { Sparkles } from 'lucide-svelte';
   import ReportView from './ReportView.svelte';
+  import AiProgressLog from './ai-sheet/AiProgressLog.svelte';
+  import AiPromptComposer from './ai-sheet/AiPromptComposer.svelte';
+  import AiRefinementPanel from './ai-sheet/AiRefinementPanel.svelte';
+  import AiSaveBar from './ai-sheet/AiSaveBar.svelte';
+  import AiSavedReportsList from './ai-sheet/AiSavedReportsList.svelte';
+  import AiViewReportDialog from './ai-sheet/AiViewReportDialog.svelte';
 
   let {
     open = $bindable(false),
@@ -43,27 +47,12 @@
   let refining = $state(false);
   // Not $state — AbortController must NOT be proxied by Svelte or .abort() breaks
   let abortController: AbortController | null = null;
-  
-  let progressContainer = $state<HTMLDivElement | undefined>(undefined);
 
   function handleOpenChange(v: boolean) {
     open = v;
     if (v && projectId) void loadSaved();
   }
   
-  // Auto-scroll progress container to bottom when relevant state changes
-  $effect(() => {
-    const container = progressContainer as HTMLDivElement | undefined;
-    // Track dependencies: scroll when container, progressSteps, running, or refining changes
-    const shouldScroll = container && (progressSteps.length > 0 || running || refining);
-    
-    if (shouldScroll) {
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-      });
-    }
-  });
-
   async function loadSaved() {
     if (!projectId) return;
     savedReports = await loadReports(projectId);
@@ -216,52 +205,16 @@
       <div class="flex-1 min-h-0 overflow-y-auto">
         {#if tab === 'new'}
           <div class="space-y-4 px-6 py-5">
-            <!-- Prompt + generate -->
-            <div class="space-y-2">
-              <textarea
-                class="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
-                placeholder="Es: Riepilogo prodotti per fornitore con quantità totali..."
-                bind:value={prompt}
-                disabled={running}
-                rows={3}
-              ></textarea>
-              <Button class="w-full" disabled={running || !prompt.trim()} onclick={handleGenerate}>
-                {#if running}
-                  <Loader class="mr-2 h-4 w-4 animate-spin" />
-                  Elaborazione...
-                {:else}
-                  <Sparkles class="mr-2 h-4 w-4" />
-                  Genera Report
-                {/if}
-              </Button>
-              {#if running || refining}
-                <Button variant="destructive" class="w-full" onclick={handleStop}>
-                  <Square class="mr-2 h-4 w-4 fill-current" />
-                  Interrompi elaborazione
-                </Button>
-              {/if}
-            </div>
+            <AiPromptComposer
+              {prompt}
+              {running}
+              {refining}
+              updatePrompt={(value) => (prompt = value)}
+              generate={handleGenerate}
+              stop={handleStop}
+            />
 
-            <!-- Progress -->
-            {#if progressSteps.length > 0 || running || refining}
-              <div class="space-y-1">
-                <p class="text-xs font-medium text-muted-foreground">Avanzamento</p>
-                 <div bind:this={progressContainer} class="rounded-md border bg-muted/30 px-3 py-2 space-y-1 max-h-36 overflow-y-auto">
-                  {#each progressSteps as step}
-                    <p class="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <ChevronRight class="h-3 w-3 shrink-0" />
-                      {step}
-                    </p>
-                  {/each}
-                  {#if running || refining}
-                    <p class="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Loader class="h-3 w-3 animate-spin shrink-0" />
-                      In elaborazione...
-                    </p>
-                  {/if}
-                </div>
-              </div>
-            {/if}
+            <AiProgressLog steps={progressSteps} {running} {refining} />
 
             <!-- Error -->
             {#if errorMsg}
@@ -276,98 +229,40 @@
               <ReportView report={currentReport} />
 
               <Separator />
-              <!-- Refinement section -->
-              <div class="space-y-2">
-                <p class="text-xs font-medium text-muted-foreground">Affina il report</p>
-                <textarea
-                  bind:value={refinementPrompt}
-                  disabled={refining}
-                  rows={2}
-                  placeholder="Es: Mostra solo prodotti con peso > 100 KG..."
-                  class="w-full rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
-                ></textarea>
-                <div class="flex gap-2">
-                  <Button class="flex-1" disabled={refining || !refinementPrompt.trim()} onclick={handleRefine}>
-                    {#if refining}
-                      <Loader class="mr-2 h-4 w-4 animate-spin" />
-                      Elaborazione...
-                    {:else}
-                      <Send class="mr-2 h-4 w-4" />
-                      Invia
-                    {/if}
-                  </Button>
-                  <Button variant="outline" onclick={handleNewAnalysis} disabled={refining || running}>
-                    Nuova analisi
-                  </Button>
-                </div>
-              </div>
+              <AiRefinementPanel
+                prompt={refinementPrompt}
+                {refining}
+                {running}
+                updatePrompt={(value) => (refinementPrompt = value)}
+                refine={handleRefine}
+                reset={handleNewAnalysis}
+              />
             {/if}
           </div>
 
         {:else}
-          <!-- Saved reports list -->
-          {#if savedReports.length === 0}
-            <div class="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-              <p class="text-sm text-muted-foreground">Nessun report salvato per questo progetto.</p>
-            </div>
-          {:else}
-            <div class="space-y-px px-3 py-3">
-              {#each savedReports as report (report.id)}
-                <div class="group flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/60">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-xs text-muted-foreground">{fmt.format(new Date(report.createdAt))}</p>
-                    <p class="mt-0.5 text-sm truncate">{report.prompt}</p>
-                  </div>
-                  <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button variant="ghost" size="icon" class="h-7 w-7" onclick={() => handleDelete(report)} title="Elimina">
-                      <Trash2 class="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                    <Button size="sm" class="h-7 text-xs" onclick={() => (viewingReport = report)}>
-                      Apri
-                    </Button>
-                  </div>
-                </div>
-                <Separator class="mx-3" />
-              {/each}
-            </div>
-          {/if}
+          <AiSavedReportsList
+            reports={savedReports}
+            openReport={(report) => (viewingReport = report)}
+            removeReport={handleDelete}
+            formatDate={(date) => fmt.format(new Date(date))}
+          />
         {/if}
       </div>
 
       <!-- Fixed save bar -->
       {#if tab === 'new' && currentReport}
-        <div class="shrink-0 border-t bg-background px-6 py-3 flex gap-2">
-          <Button variant="outline" class="flex-1" onclick={handleSave}>
-            <Save class="mr-2 h-4 w-4" />
-            Salva report
-          </Button>
-          <Button variant="outline" onclick={() => exportReportToDocx(currentReport!)} title="Esporta DOCX">
-            <Download class="mr-2 h-4 w-4" />
-            Scarica DOCX
-          </Button>
-        </div>
+        <AiSaveBar
+          saveReport={handleSave}
+          exportDocx={() => exportReportToDocx(currentReport!)}
+        />
       {/if}
     {/if}
   </Sheet.Content>
 </Sheet.Root>
 
-<!-- Dialog for viewing a saved report -->
-{#if viewingReport}
-  <Dialog.Root open={viewingReport !== null} onOpenChange={(v) => { if (!v) viewingReport = null; }}>
-    <Dialog.Portal>
-      <Dialog.Overlay />
-      <Dialog.Content class="sm:max-w-[700px] max-h-[85vh] flex flex-col gap-0 p-0">
-        <Dialog.Header class="shrink-0 px-6 py-4 border-b flex items-center justify-between">
-          <Dialog.Title>Report</Dialog.Title>
-          <Button variant="ghost" onclick={() => exportReportToDocx(viewingReport!)} title="Esporta DOCX">
-            <Download class="mr-2 h-4 w-4" />
-            Scarica DOCX
-          </Button>
-        </Dialog.Header>
-        <div class="flex-1 min-h-0 overflow-y-auto px-6 py-4">
-          <ReportView report={viewingReport} />
-        </div>
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>
-{/if}
+<AiViewReportDialog
+  report={viewingReport}
+  close={() => (viewingReport = null)}
+  exportDocx={() => exportReportToDocx(viewingReport!)}
+/>

@@ -1,16 +1,16 @@
 <script lang="ts">
-  import { Input } from '$lib/components/ui/input';
-  import { Button } from '$lib/components/ui/button';
+  import type { TableBlock } from '$lib/ai-reports';
   import {
     Table,
-    TableHeader,
     TableBody,
-    TableRow,
-    TableHead,
     TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
   } from '$lib/components/ui/table';
-  import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-svelte';
-  import type { TableBlock } from '$lib/ai-reports';
+  import ReportTableEmptyRow from './report/ReportTableEmptyRow.svelte';
+  import ReportTableSearch from './report/ReportTableSearch.svelte';
+  import ReportTableSortButton from './report/ReportTableSortButton.svelte';
 
   let { block }: { block: TableBlock } = $props();
 
@@ -57,12 +57,7 @@
   {/if}
 
   {#if block.rows.length > 5}
-    <Input
-      type="search"
-      placeholder="Cerca..."
-      bind:value={search}
-      class="h-7 text-xs"
-    />
+    <ReportTableSearch bind:value={search} />
   {/if}
 
   <div class="rounded-md border">
@@ -71,23 +66,12 @@
         <TableRow>
           {#each block.columns as col}
             <TableHead class="text-xs">
-              <Button
-                variant="ghost"
-                size="sm"
-                class="h-auto px-1 py-0 text-xs font-medium"
-                onclick={() => toggleSort(col.key)}
-              >
-                {col.label}
-                {#if sortKey === col.key}
-                  {#if sortDir === 'asc'}
-                    <ArrowUp class="ml-1 h-3 w-3" />
-                  {:else}
-                    <ArrowDown class="ml-1 h-3 w-3" />
-                  {/if}
-                {:else}
-                  <ArrowUpDown class="ml-1 h-3 w-3 opacity-40" />
-                {/if}
-              </Button>
+              <ReportTableSortButton
+                label={col.label}
+                active={sortKey === col.key}
+                direction={sortDir}
+                toggle={() => toggleSort(col.key)}
+              />
             </TableHead>
           {/each}
         </TableRow>
@@ -100,11 +84,7 @@
             {/each}
           </TableRow>
         {:else}
-          <TableRow>
-            <TableCell colspan={block.columns.length} class="text-center text-xs text-muted-foreground">
-              Nessun risultato
-            </TableCell>
-          </TableRow>
+          <ReportTableEmptyRow colspan={block.columns.length} />
         {/each}
       </TableBody>
     </Table>

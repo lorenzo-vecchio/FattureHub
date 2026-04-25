@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
-  import { X, FolderArchive, Settings, Sparkles, Loader } from 'lucide-svelte';
+  import HeaderActions from './header/HeaderActions.svelte';
+  import HeaderProjectStatus from './header/HeaderProjectStatus.svelte';
 
   let {
     fattureCount,
@@ -41,48 +41,18 @@
       {/if}
 
       {#if currentProjectName || (isDirty && fattureCount > 0)}
-        <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {#if isDirty || isAiRunning}
-            <span class="h-1.5 w-1.5 rounded-full {isAiRunning ? 'bg-blue-400 animate-pulse' : 'bg-amber-400'} shrink-0"></span>
-          {/if}
-          <span class="max-w-[200px] truncate">
-            {currentProjectName ?? 'Non salvato'}
-          </span>
-        </div>
+        <HeaderProjectStatus {isDirty} {isAiRunning} {currentProjectName} />
       {/if}
     </div>
 
-    <div class="flex items-center gap-2">
-       {#if aiEnabled && fattureCount > 0}
-        <Button
-          variant={isAiRunning ? 'secondary' : 'ghost'}
-          size="sm"
-          onclick={openai}
-          title="Assistente AI"
-        >
-          {#if isAiRunning}
-            <Loader class="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          {:else}
-            <Sparkles class="mr-1.5 h-3.5 w-3.5" />
-          {/if}
-          AI
-        </Button>
-      {/if}
-      {#if fattureCount > 0}
-        <Button variant="ghost" size="sm" onclick={onopenprojects}>
-          <FolderArchive class="mr-1.5 h-3.5 w-3.5" />
-          Progetti
-        </Button>
-      {/if}
-      <Button variant="ghost" size="icon" onclick={opensettings} title="Impostazioni">
-        <Settings class="h-4 w-4" />
-      </Button>
-      {#if fattureCount > 0}
-        <Button variant="ghost" size="sm" onclick={onclear}>
-          <X class="mr-1.5 h-3.5 w-3.5" />
-          Chiudi progetto
-        </Button>
-      {/if}
-    </div>
+    <HeaderActions
+      {fattureCount}
+      {aiEnabled}
+      {isAiRunning}
+      openAi={openai}
+      openProjects={onopenprojects}
+      openSettings={opensettings}
+      clearProject={onclear}
+    />
   </div>
 </header>

@@ -1,15 +1,19 @@
 <script lang="ts">
-  import type { Fattura } from '$lib/parser';
-  import { cedenteKey, cedenteLabel, cessionarioKey, cessionarioLabel } from '$lib/parser';
-  import type { Filters } from '$lib/filters';
-  import { TIPI_DOCUMENTO, REGIMI_FISCALI } from '$lib/filters';
   import { Button } from '$lib/components/ui/button';
+  import * as Card from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
-  import { Separator } from '$lib/components/ui/separator';
-  import * as Card from '$lib/components/ui/card';
   import * as Select from '$lib/components/ui/select';
+  import { Separator } from '$lib/components/ui/separator';
+  import type { Filters } from '$lib/filters';
+  import { REGIMI_FISCALI, TIPI_DOCUMENTO } from '$lib/filters';
+  import type { Fattura } from '$lib/parser';
+  import { cedenteKey, cedenteLabel, cessionarioKey, cessionarioLabel } from '$lib/parser';
   import { Funnel, RotateCcw } from 'lucide-svelte';
+  import FilterAmountRange from './filters/FilterAmountRange.svelte';
+  import FilterDateRange from './filters/FilterDateRange.svelte';
+  import FilterDocumentTypes from './filters/FilterDocumentTypes.svelte';
+  import FilterEntityChecklist from './filters/FilterEntityChecklist.svelte';
 
   interface Props {
     filters: Filters;
@@ -77,123 +81,43 @@
 
     <Card.Content class="space-y-5 max-h-[calc(100vh-10rem)] overflow-y-auto pb-6">
 
-      <!-- Data -->
-      <div class="space-y-2">
-        <Label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Data documento
-        </Label>
-        <div class="grid grid-cols-2 gap-2">
-          <div class="space-y-1">
-            <Label class="text-xs">Da</Label>
-            <Input type="date" bind:value={filters.dataFrom} class="h-8 text-sm" />
-          </div>
-          <div class="space-y-1">
-            <Label class="text-xs">A</Label>
-            <Input type="date" bind:value={filters.dataTo} class="h-8 text-sm" />
-          </div>
-        </div>
-      </div>
+      <FilterDateRange
+        from={filters.dataFrom}
+        to={filters.dataTo}
+        updateFrom={(value) => (filters.dataFrom = value)}
+        updateTo={(value) => (filters.dataTo = value)}
+      />
 
       <Separator />
 
-      <!-- Fornitore (cedente) -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <Label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Fornitore (Cedente)
-          </Label>
-          {#if filters.fornitori.length > 0}
-            <button
-              onclick={() => (filters.fornitori = [])}
-              class="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Deseleziona tutti
-            </button>
-          {/if}
-        </div>
-        {#if uniqueCedenti.length === 0}
-          <p class="text-xs text-muted-foreground italic">Nessun fornitore caricato</p>
-        {:else}
-          <div class="max-h-40 overflow-y-auto rounded-md border p-2 space-y-0.5">
-            {#each uniqueCedenti as c}
-              <label class="flex items-start gap-2 cursor-pointer rounded px-1 py-1 hover:bg-muted transition-colors">
-                <input
-                  type="checkbox"
-                  checked={filters.fornitori.includes(c.key)}
-                  onchange={() => toggleFornitore(c.key)}
-                  class="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
-                />
-                <div class="min-w-0">
-                  <p class="text-xs leading-tight truncate">{c.label}</p>
-                  {#if c.piva}
-                    <p class="text-xs text-muted-foreground">{c.piva}</p>
-                  {/if}
-                </div>
-              </label>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      <FilterEntityChecklist
+        title="Fornitore (Cedente)"
+        emptyLabel="Nessun fornitore caricato"
+        selected={filters.fornitori}
+        entities={uniqueCedenti}
+        toggle={toggleFornitore}
+        clearAll={() => (filters.fornitori = [])}
+      />
 
       <Separator />
 
-      <!-- Cliente (cessionario) -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <Label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Cliente (Cessionario)
-          </Label>
-          {#if filters.clienti.length > 0}
-            <button
-              onclick={() => (filters.clienti = [])}
-              class="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Deseleziona tutti
-            </button>
-          {/if}
-        </div>
-        {#if uniqueCessionari.length === 0}
-          <p class="text-xs text-muted-foreground italic">Nessun cliente caricato</p>
-        {:else}
-          <div class="max-h-40 overflow-y-auto rounded-md border p-2 space-y-0.5">
-            {#each uniqueCessionari as c}
-              <label class="flex items-start gap-2 cursor-pointer rounded px-1 py-1 hover:bg-muted transition-colors">
-                <input
-                  type="checkbox"
-                  checked={filters.clienti.includes(c.key)}
-                  onchange={() => toggleCliente(c.key)}
-                  class="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
-                />
-                <div class="min-w-0">
-                  <p class="text-xs leading-tight truncate">{c.label}</p>
-                  {#if c.piva}
-                    <p class="text-xs text-muted-foreground">{c.piva}</p>
-                  {/if}
-                </div>
-              </label>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      <FilterEntityChecklist
+        title="Cliente (Cessionario)"
+        emptyLabel="Nessun cliente caricato"
+        selected={filters.clienti}
+        entities={uniqueCessionari}
+        toggle={toggleCliente}
+        clearAll={() => (filters.clienti = [])}
+      />
 
       <Separator />
 
-      <!-- Importo -->
-      <div class="space-y-2">
-        <Label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Importo totale (€)
-        </Label>
-        <div class="grid grid-cols-2 gap-2">
-          <div class="space-y-1">
-            <Label class="text-xs">Min</Label>
-            <Input type="number" bind:value={filters.importoMin} placeholder="0" class="h-8 text-sm" />
-          </div>
-          <div class="space-y-1">
-            <Label class="text-xs">Max</Label>
-            <Input type="number" bind:value={filters.importoMax} placeholder="∞" class="h-8 text-sm" />
-          </div>
-        </div>
-      </div>
+      <FilterAmountRange
+        min={filters.importoMin}
+        max={filters.importoMax}
+        updateMin={(value) => (filters.importoMin = String(value ?? ''))}
+        updateMax={(value) => (filters.importoMax = String(value ?? ''))}
+      />
 
       <Separator />
 
@@ -207,26 +131,11 @@
 
       <Separator />
 
-      <!-- Tipo documento -->
-      <div class="space-y-2">
-        <Label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Tipo documento
-        </Label>
-        <div class="flex flex-wrap gap-1.5">
-          {#each TIPI_DOCUMENTO as tipo}
-            <button
-              onclick={() => toggleTipo(tipo.value)}
-              title={tipo.label}
-              class="rounded-md border px-2 py-1 text-xs font-medium transition-colors
-                     {filters.tipoDocumento.includes(tipo.value)
-                       ? 'bg-primary text-primary-foreground border-primary'
-                       : 'bg-background text-foreground border-border hover:bg-muted'}"
-            >
-              {tipo.value}
-            </button>
-          {/each}
-        </div>
-      </div>
+      <FilterDocumentTypes
+        selected={filters.tipoDocumento}
+        options={TIPI_DOCUMENTO}
+        toggle={toggleTipo}
+      />
 
       <Separator />
 
