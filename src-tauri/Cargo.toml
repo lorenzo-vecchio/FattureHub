@@ -1,6 +1,6 @@
 [package]
 name = "fatturehub"
-version = "2.1.0"
+version = "2.2.0"
 description = "Applicazione desktop per filtrare, visualizzare ed esportare fatture elettroniche FatturaPA"
 authors = ["Lorenzo Giovanni Vecchio"]
 license = "Commons Clause + MIT"
