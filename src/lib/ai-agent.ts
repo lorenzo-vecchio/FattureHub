@@ -69,6 +69,7 @@ function buildProviderOptions(config: AiConfig, role: 'orchestrator' | 'task'): 
 
   return {
     openai: {
+      systemMessageMode: 'system',
       reasoningEffort: 'high',
       forceReasoning: true,
     },
@@ -78,6 +79,10 @@ function buildProviderOptions(config: AiConfig, role: 'orchestrator' | 'task'): 
 function buildGenerateTextOptions(config: AiConfig, role: 'orchestrator' | 'task'): Record<string, unknown> {
   const providerOptions = buildProviderOptions(config, role);
   return providerOptions ? { providerOptions } : {};
+}
+
+function sanitizeModelMessages(messages: ModelMessage[]): ModelMessage[] {
+  return messages.filter((message) => (message as { role: string }).role !== 'developer');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -750,7 +755,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
   const contextWindow = config.contextWindow ?? 0;
 
   let messages: ModelMessage[] = conversationMessages
-    ? [...conversationMessages, { role: 'user', content: prompt }]
+    ? [...sanitizeModelMessages(conversationMessages), { role: 'user', content: prompt }]
     : [{ role: 'user', content: prompt }];
 
   for (let phase = 0; phase < 8; phase++) {
@@ -772,7 +777,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       },
     });
 
-    messages = [...messages, ...(result.response.messages as ModelMessage[])];
+    messages = [...messages, ...sanitizeModelMessages(result.response.messages as ModelMessage[])];
 
     if (capturedBlocks) break;
 
@@ -814,5 +819,5 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
     blocks: capturedBlocks as ReportBlock[],
   };
 
-  return { report, messages };
+  return { report, messages: sanitizeModelMessages(messages) };
 }
