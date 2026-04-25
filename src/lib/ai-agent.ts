@@ -67,6 +67,15 @@ function buildProviderOptions(config: AiConfig, role: 'orchestrator' | 'task'): 
     };
   }
 
+  if (isDeepSeekConfig(config)) {
+    return {
+      openai: {
+        systemMessageMode: 'system',
+        forceReasoning: true,
+      },
+    };
+  }
+
   return {
     openai: {
       systemMessageMode: 'system',
@@ -85,6 +94,33 @@ function sanitizeModelMessages(messages: ModelMessage[]): ModelMessage[] {
   return messages.filter((message) => (message as { role: string }).role !== 'developer');
 }
 
+function isDeepSeekConfig(config: AiConfig): boolean {
+  return config.endpoint.toLowerCase().includes('deepseek');
+}
+
+function wrapFetchForDeepSeek(baseFetch: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes('/chat/completions') && init?.body && typeof init.body === 'string') {
+      try {
+        const body = JSON.parse(init.body);
+        if (body.messages && Array.isArray(body.messages)) {
+          body.messages = body.messages.map((msg: Record<string, unknown>) => {
+            if (msg.role === 'assistant' && !('reasoning_content' in msg)) {
+              return { ...msg, reasoning_content: '' };
+            }
+            return msg;
+          });
+        }
+        return baseFetch(input, { ...init, body: JSON.stringify(body) });
+      } catch {
+        return baseFetch(input, init);
+      }
+    }
+    return baseFetch(input, init);
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): any {
   const modelName = resolveModelName(config, role);
@@ -98,10 +134,13 @@ function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestra
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (provider as any)(modelName);
   }
+  const fetchFn = isDeepSeekConfig(config)
+    ? wrapFetchForDeepSeek(tauriFetch as typeof fetch)
+    : (tauriFetch as typeof fetch);
   const provider = createOpenAI({
     apiKey: config.apiKey,
     ...(config.endpoint ? { baseURL: config.endpoint } : {}),
-    fetch: tauriFetch as typeof fetch,
+    fetch: fetchFn,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (provider as any).chat(modelName);
