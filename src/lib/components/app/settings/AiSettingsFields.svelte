@@ -40,9 +40,23 @@
     saveConfig: () => void;
   } = $props();
 
+  function formatContextWindow(value: number): string {
+    return new Intl.NumberFormat('en-US').format(value);
+  }
+
+  function normalizeContextWindow(value: string): string {
+    return value.replace(/[^0-9]/g, '');
+  }
+
   function isModelListed(modelId: string): boolean {
     return availableModels.some((model) => model.id === modelId);
   }
+
+  let contextWindowText = $state('');
+
+  $effect(() => {
+    contextWindowText = formatContextWindow(aiConfig.contextWindow);
+  });
 </script>
 
 <div class="space-y-3">
@@ -218,11 +232,16 @@
     <Label class="text-xs" for="ai-context-window">Context Window (token, 0 = illimitato)</Label>
     <Input
       id="ai-context-window"
-      type="number"
+      type="text"
+      inputmode="numeric"
       class="h-7 text-xs"
       placeholder="0"
-      value={aiConfig.contextWindow}
-      oninput={(e) => updateContextWindow((e.target as HTMLInputElement).value)}
+      value={contextWindowText}
+      oninput={(e) => {
+        const rawValue = normalizeContextWindow((e.target as HTMLInputElement).value);
+        contextWindowText = rawValue ? formatContextWindow(Number(rawValue)) : '';
+        updateContextWindow(rawValue);
+      }}
     />
   </div>
 
