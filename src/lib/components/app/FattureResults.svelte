@@ -1,11 +1,9 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import * as Card from '$lib/components/ui/card';
   import type { Fattura } from '$lib/parser';
   import { downloadZip, downloadZipGrouped } from '$lib/zipper';
-  import { Funnel, RotateCcw } from 'lucide-svelte';
   import FatturaDialog from './FatturaDialog.svelte';
   import FatturaListItem from './FatturaListItem.svelte';
+  import FattureEmptyState from './FattureEmptyState.svelte';
   import FattureExportDialog from './FattureExportDialog.svelte';
   import FattureResultsToolbar from './FattureResultsToolbar.svelte';
   import FattureTotals from './FattureTotals.svelte';
@@ -71,16 +69,7 @@
 
   <!-- Lista fatture -->
   {#if filtrate.length === 0}
-    <Card.Root>
-      <Card.Content class="flex flex-col items-center gap-3 py-16 text-center">
-        <Funnel class="h-8 w-8 text-muted-foreground/50" />
-        <p class="text-sm text-muted-foreground">Nessuna fattura corrisponde ai filtri selezionati.</p>
-        <Button variant="outline" size="sm" onclick={onreset}>
-          <RotateCcw class="mr-2 h-3.5 w-3.5" />
-          Azzera filtri
-        </Button>
-      </Card.Content>
-    </Card.Root>
+    <FattureEmptyState {onreset} />
   {:else}
     {#each filtrate as fat}
       <FatturaListItem fat={fat} onopen={() => openDetail(fat)} />
