@@ -4,17 +4,23 @@ fn force_exit() {
 }
 
 #[tauri::command]
-async fn http_post(
+async fn http_request(
   url: String,
+  method: String,
   headers: std::collections::HashMap<String, String>,
   body: String,
 ) -> Result<serde_json::Value, String> {
   let client = reqwest::Client::new();
-  let mut req = client.post(&url);
+  let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| e.to_string())?;
+  let mut req = client.request(method, &url);
   for (k, v) in &headers {
     req = req.header(k.as_str(), v.as_str());
   }
-  let resp = req.body(body).send().await.map_err(|e| e.to_string())?;
+  let resp = if body.is_empty() {
+    req.send().await.map_err(|e| e.to_string())?
+  } else {
+    req.body(body).send().await.map_err(|e| e.to_string())?
+  };
   let status = resp.status().as_u16();
   let ct = resp
     .headers()
@@ -44,7 +50,7 @@ fn set_document_edited(webview_window: tauri::WebviewWindow, edited: bool) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![force_exit, set_document_edited, http_post])
+    .invoke_handler(tauri::generate_handler![force_exit, set_document_edited, http_request])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_process::init())

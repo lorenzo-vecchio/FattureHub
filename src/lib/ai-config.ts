@@ -7,7 +7,9 @@ export interface AiConfig {
   apiKey: string;
   model: string;
   orchestratorModel: string;
+  orchestratorReasoning?: boolean;
   taskModel: string;
+  taskReasoning?: boolean;
   contextWindow: number;
 }
 

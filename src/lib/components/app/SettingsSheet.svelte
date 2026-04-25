@@ -1,5 +1,6 @@
 <script lang="ts">
   import { defaultAiConfig, loadAiConfig, saveAiConfig, type AiConfig } from '$lib/ai-config';
+  import { fetchAvailableModels, suggestDefaultModel, type AvailableModel } from '$lib/ai-models';
   import { Separator } from '$lib/components/ui/separator';
   import * as Sheet from '$lib/components/ui/sheet';
   import { getSetting, setSetting } from '$lib/db-sqlite';
@@ -18,6 +19,10 @@
   } = $props();
 
   let aiConfig = $state<AiConfig>({ ...defaultAiConfig });
+  let availableModels = $state<AvailableModel[]>([]);
+  let modelLoading = $state(false);
+  let modelError = $state<string | null>(null);
+  let lastModelFetchKey = '';
   let keepFilesAfterImport = $state(false);
 
   function handleOpenChange(v: boolean) {
@@ -34,6 +39,49 @@
         keepFilesAfterImport = value === 'true';
       });
     }
+  });
+
+  $effect(() => {
+    if (!open) return;
+
+    const endpoint = aiConfig.endpoint.trim();
+    const apiKey = aiConfig.apiKey.trim();
+    const provider = aiConfig.provider;
+
+    if (!endpoint || !apiKey) {
+      availableModels = [];
+      modelError = null;
+      modelLoading = false;
+      lastModelFetchKey = '';
+      return;
+    }
+
+    const fetchKey = `${provider}|${endpoint}|${apiKey}`;
+    if (fetchKey === lastModelFetchKey) return;
+
+    modelLoading = true;
+    modelError = null;
+
+    const timer = setTimeout(async () => {
+      try {
+        const models = await fetchAvailableModels({ provider, endpoint, apiKey });
+        lastModelFetchKey = fetchKey;
+        availableModels = models;
+
+        const suggestedModel = suggestDefaultModel(models);
+        if (!aiConfig.model && suggestedModel) {
+          aiConfig = { ...aiConfig, model: suggestedModel };
+        }
+      } catch (error) {
+        lastModelFetchKey = '';
+        availableModels = [];
+        modelError = error instanceof Error ? error.message : 'Impossibile caricare i modelli disponibili.';
+      } finally {
+        modelLoading = false;
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
   });
 
   let saved = $state(false);
@@ -97,13 +145,18 @@
         {#if aiConfig.enabled}
           <AiSettingsFields
             {aiConfig}
+            {availableModels}
+            {modelLoading}
+            {modelError}
             {saved}
             setProvider={(provider) => { aiConfig = { ...aiConfig, provider }; }}
             updateEndpoint={(value) => { aiConfig = { ...aiConfig, endpoint: value }; }}
             updateApiKey={(value) => { aiConfig = { ...aiConfig, apiKey: value }; }}
             updateModel={(value) => { aiConfig = { ...aiConfig, model: value }; }}
             updateOrchestratorModel={(value) => { aiConfig = { ...aiConfig, orchestratorModel: value }; }}
+            updateOrchestratorReasoning={(value) => { aiConfig = { ...aiConfig, orchestratorReasoning: value }; }}
             updateTaskModel={(value) => { aiConfig = { ...aiConfig, taskModel: value }; }}
+            updateTaskReasoning={(value) => { aiConfig = { ...aiConfig, taskReasoning: value }; }}
             updateContextWindow={(value) => { aiConfig = { ...aiConfig, contextWindow: parseInt(value) || 0 }; }}
             saveConfig={handleAiSave}
           />

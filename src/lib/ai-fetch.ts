@@ -7,7 +7,7 @@ interface TauriHttpResponse {
 }
 
 /**
- * A fetch-compatible function that routes HTTP calls through Tauri's `http_post` Rust command,
+ * A fetch-compatible function that routes HTTP calls through Tauri's HTTP Rust command,
  * bypassing CORS restrictions that apply to the Tauri WebView origin.
  */
 export async function tauriFetch(
@@ -15,6 +15,7 @@ export async function tauriFetch(
   init?: RequestInit,
 ): Promise<Response> {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const method = (init?.method ?? 'GET').toUpperCase();
 
   const headers: Record<string, string> = {};
   if (init?.headers) {
@@ -31,7 +32,7 @@ export async function tauriFetch(
   // Race the Rust HTTP call against the abort signal.
   // invoke() itself is not cancellable, but we reject as soon as abort fires
   // so the AI SDK stops processing and making further requests.
-  const invokePromise = invoke<TauriHttpResponse>('http_post', { url, headers, body });
+  const invokePromise = invoke<TauriHttpResponse>('http_request', { url, method, headers, body });
 
   const result = await (signal
     ? Promise.race([

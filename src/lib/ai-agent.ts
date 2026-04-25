@@ -1,12 +1,12 @@
-import { generateText, stepCountIs, hasToolCall } from 'ai';
-import type { ModelMessage } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAI } from '@ai-sdk/openai';
+import type { ModelMessage } from 'ai';
+import { generateText, hasToolCall, stepCountIs } from 'ai';
 import { z } from 'zod';
-import { tauriFetch } from './ai-fetch';
 import type { AiConfig } from './ai-config';
-import type { Fattura } from './parser';
+import { tauriFetch } from './ai-fetch';
 import type { Report, ReportBlock, TableBlock } from './ai-reports';
+import type { Fattura } from './parser';
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -32,11 +32,57 @@ const reportBlocksSchema = z.array(z.union([textBlockSchema, tableRefSchema, inl
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): any {
+function resolveModelName(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): string {
   const modelName = role === 'task'
     ? (config.taskModel || config.model)
     : (config.orchestratorModel || config.model);
+
+  if (!modelName.trim()) {
+    throw new Error('Seleziona un modello AI nelle impostazioni.');
+  }
+
+  return modelName;
+}
+
+function shouldUseReasoning(config: AiConfig, role: 'orchestrator' | 'task'): boolean {
+  if (role === 'orchestrator') {
+    return config.orchestratorReasoning ?? !config.orchestratorModel;
+  }
+
+  return config.taskReasoning ?? false;
+}
+
+function buildProviderOptions(config: AiConfig, role: 'orchestrator' | 'task'): Record<string, unknown> | undefined {
+  if (!shouldUseReasoning(config, role)) return undefined;
+
+  if (config.provider === 'anthropic') {
+    return {
+      anthropic: {
+        thinking: {
+          type: 'enabled',
+          budgetTokens: 1024,
+        },
+        sendReasoning: true,
+      },
+    };
+  }
+
+  return {
+    openai: {
+      reasoningEffort: 'high',
+      forceReasoning: true,
+    },
+  };
+}
+
+function buildGenerateTextOptions(config: AiConfig, role: 'orchestrator' | 'task'): Record<string, unknown> {
+  const providerOptions = buildProviderOptions(config, role);
+  return providerOptions ? { providerOptions } : {};
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): any {
+  const modelName = resolveModelName(config, role);
 
   if (config.provider === 'anthropic') {
     const provider = createAnthropic({
@@ -148,6 +194,7 @@ async function compressContext(
       model: compressModel,
       system: 'Sei un assistente che riassume sessioni di analisi. Produci un riassunto conciso in italiano di ciò che è stato fatto e dei risultati ottenuti.',
       prompt: `Riassumi questa sessione di lavoro in 200 parole massimo:\n\nPIANO: ${plan || 'nessuno'}\n\nMESSAGGI:\n${JSON.stringify(messages.slice(-20))}`,
+      ...buildGenerateTextOptions(config, 'orchestrator'),
       abortSignal,
     });
     return result.text;
@@ -398,6 +445,7 @@ ${existingGroups.length > 0 ? `GRUPPI ESISTENTI (usa questi nomi se applicabile)
 ${args.context ? `CONTESTO: ${args.context}` : ''}
 Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeight":3290,"occurrences":329}]`,
             prompt: JSON.stringify(batchInput),
+            ...buildGenerateTextOptions(config, 'task'),
             abortSignal,
           });
 
@@ -713,6 +761,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       tools,
       toolChoice: 'auto',
       stopWhen: [stepCountIs(15), hasToolCall('finish_report')],
+      ...buildGenerateTextOptions(config, 'orchestrator'),
       abortSignal,
       onStepFinish: (step) => {
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
