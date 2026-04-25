@@ -23,7 +23,7 @@
 </script>
 
 <Card.Root class="bg-primary text-primary-foreground sticky bottom-10">
-  <Card.Content class="flex flex-wrap items-center justify-between gap-4 py-4">
+  <Card.Content class="flex flex-wrap items-center justify-between gap-4 py-1">
     <p class="text-sm font-medium">{selectedCount} fatture selezionate</p>
     <div class="flex flex-wrap gap-6">
       <div class="text-right">
