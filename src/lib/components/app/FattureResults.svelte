@@ -1,17 +1,14 @@
 <script lang="ts">
-  import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
   import * as Card from '$lib/components/ui/card';
   import type { Fattura } from '$lib/parser';
-  import { cedenteLabel } from '$lib/parser';
   import { downloadZip, downloadZipGrouped } from '$lib/zipper';
   import { Funnel, RotateCcw } from 'lucide-svelte';
   import FatturaDialog from './FatturaDialog.svelte';
+  import FatturaListItem from './FatturaListItem.svelte';
   import FattureExportDialog from './FattureExportDialog.svelte';
   import FattureResultsToolbar from './FattureResultsToolbar.svelte';
   import FattureTotals from './FattureTotals.svelte';
-
-  const fmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
 
   let { filtrate, fattureCount, isDirty, currentProjectName, onaddfile, onreset, onsave, removeInvoice }: {
     filtrate: Fattura[];
@@ -86,42 +83,7 @@
     </Card.Root>
   {:else}
     {#each filtrate as fat}
-      <Card.Root
-        class="transition-colors hover:border-foreground/30 cursor-pointer"
-        onclick={() => openDetail(fat)}
-      >
-        <Card.Content class="flex items-start justify-between gap-4 py-4">
-          <div class="min-w-0 flex-1 space-y-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" class="font-mono text-xs">
-                {fat.tipoDocumento || '—'}
-              </Badge>
-              <span class="text-sm font-medium">{cedenteLabel(fat)}</span>
-            </div>
-            <div class="flex flex-wrap gap-x-3 gap-y-0.5">
-              {#if fat.data}
-                <span class="text-xs text-muted-foreground">{fat.data}</span>
-              {/if}
-              {#if fat.numero}
-                <span class="text-xs text-muted-foreground">#{fat.numero}</span>
-              {/if}
-              {#if fat.cedentePiva}
-                <span class="text-xs text-muted-foreground">P.IVA {fat.cedentePiva}</span>
-              {/if}
-              {#if fat.cedenteRegimeFiscale}
-                <Badge variant="secondary" class="text-xs h-4">{fat.cedenteRegimeFiscale}</Badge>
-              {/if}
-            </div>
-            <p class="truncate text-xs text-muted-foreground/70">{fat.fileName}</p>
-          </div>
-          <div class="shrink-0 text-right">
-            <p class="text-sm font-semibold">{fmt.format(fat.importoTotale)}</p>
-            {#if fat.imposta > 0}
-              <p class="text-xs text-muted-foreground">IVA {fmt.format(fat.imposta)}</p>
-            {/if}
-          </div>
-        </Card.Content>
-      </Card.Root>
+      <FatturaListItem fat={fat} onopen={() => openDetail(fat)} />
       <div class="m-3"></div>
     {/each}
 
