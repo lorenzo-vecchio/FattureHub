@@ -1,6 +1,6 @@
 # FattureHub
 
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/lorenzo-vecchio/FattureHub/total)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/lorenzo-vecchio/FattureHub/total?style=for-the-badge)
 
 Applicazione desktop per filtrare, visualizzare, analizzare ed esportare fatture elettroniche in formato **FatturaPA** (standard SDI italiano). Versione **1.1.1**.
 
