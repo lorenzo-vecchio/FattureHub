@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  import { api } from '$lib/api/client';
   import { Button } from '$lib/components/ui/button';
-  import { FolderArchive, Loader, Settings, Sparkles, X } from 'lucide-svelte';
+  import { FolderArchive, Loader, LogIn, LogOut, Settings, Sparkles, X } from 'lucide-svelte';
 
   let {
     fattureCount,
@@ -19,9 +21,29 @@
     openSettings: () => void;
     clearProject: () => void;
   } = $props();
+
+  let isLoggedIn = $state(api.isLoggedIn());
+
+  async function handleLogout() {
+    await api.logout();
+    isLoggedIn = false;
+    goto('/');
+  }
 </script>
 
 <div class="flex items-center gap-2">
+  {#if isLoggedIn}
+    <Button variant="ghost" size="sm" onclick={handleLogout} title="Disconnetti">
+      <LogOut class="mr-1.5 h-3.5 w-3.5" />
+      Esci
+    </Button>
+  {:else}
+    <Button variant="ghost" size="sm" onclick={() => goto('/login')} title="Accedi">
+      <LogIn class="mr-1.5 h-3.5 w-3.5" />
+      Accedi
+    </Button>
+  {/if}
+
   {#if aiEnabled && fattureCount > 0}
     <Button
       variant={isAiRunning ? 'secondary' : 'ghost'}
