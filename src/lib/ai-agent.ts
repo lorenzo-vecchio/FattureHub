@@ -122,21 +122,68 @@ function wrapFetchForDeepSeek(baseFetch: typeof fetch): typeof fetch {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('fatturehub_access_token');
+}
+
+function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('fatturehub_refresh_token');
+}
+
+async function fetchWithBackendAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+
+  let token = getAccessToken();
+  if (!token) {
+    token = await tryRefreshToken();
+    if (!token) throw new Error('Not authenticated');
+  }
+
+  headers.set('Authorization', `Bearer ${token}`);
+  let res = await tauriFetch(input, { ...init, headers });
+
+  if (res.status === 401) {
+    const newToken = await tryRefreshToken();
+    if (newToken) {
+      headers.set('Authorization', `Bearer ${newToken}`);
+      res = await tauriFetch(input, { ...init, headers });
+    }
+  }
+
+  return res;
+}
+
+async function tryRefreshToken(): Promise<string | null> {
+  const refresh = getRefreshToken();
+  if (!refresh) return null;
+  try {
+    const res = await tauriFetch('http://localhost:8080/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    localStorage.setItem('fatturehub_access_token', data.access_token);
+    localStorage.setItem('fatturehub_refresh_token', data.refresh_token);
+    return data.access_token;
+  } catch {
+    return null;
+  }
+}
+
 function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): any {
   const modelName = resolveModelName(config, role);
 
   if (config.useBackendAI) {
-    const backendUrl = 'http://localhost:8080';
-    const token = typeof window !== 'undefined' ? localStorage.getItem('fatturehub_access_token') : null;
-    const fetchWithAuth: typeof fetch = (input, init) => {
-      const headers = new Headers(init?.headers);
-      if (token) headers.set('Authorization', `Bearer ${token}`);
-      return tauriFetch(input, { ...init, headers });
-    };
+    const backendUrl = 'http://localhost:8080/v1';
+    const token = getAccessToken();
     const provider = createOpenAI({
       baseURL: backendUrl,
       apiKey: token || 'backend',
-      fetch: fetchWithAuth as typeof fetch,
+      fetch: fetchWithBackendAuth as typeof fetch,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (provider as any).chat(modelName);
