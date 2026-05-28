@@ -10,6 +10,7 @@
   import SwitchRow from './settings/SwitchRow.svelte';
   import ThemeSelector from './settings/ThemeSelector.svelte';
   import { isLoggedIn, logout, getApi } from '$lib/api/auth.svelte';
+  import { open } from '@tauri-apps/plugin-shell';
 
   let {
     open = $bindable(false),
@@ -184,11 +185,12 @@
               {/if}
             </div>
 
-            <a href="/settings" target="_blank" class="block w-full">
-              <button class="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Gestisci abbonamento
-              </button>
-            </a>
+            <button
+              onclick={() => open('http://localhost:5173/settings')}
+              class="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Gestisci abbonamento
+            </button>
 
             <button
               onclick={handleLogout}

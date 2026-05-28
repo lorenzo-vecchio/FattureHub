@@ -16,6 +16,7 @@
     "fs:allow-write-file",
     "sql:default",
     "sql:allow-execute",
+    "shell:allow-open",
     "fs:scope-home-recursive",
     "fs:scope-desktop-recursive",
     "fs:scope-download-recursive"
