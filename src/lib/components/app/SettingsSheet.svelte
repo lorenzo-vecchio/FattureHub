@@ -245,10 +245,10 @@
         {#if aiConfig.enabled}
           {#if isLoggedIn()}
             <SwitchRow
-              title="AI del backend"
-              description="Usa l'AI inclusa nell'abbonamento (consuma crediti)"
+              title="AI inclusa nell'abbonamento"
+              description="Usa l'AI del backend (consuma crediti)"
               checked={aiConfig.useBackendAI}
-              label="Usa AI del backend"
+              label="Usa AI inclusa nell'abbonamento"
               toggle={async () => {
                 aiConfig = { ...aiConfig, useBackendAI: !aiConfig.useBackendAI };
                 await saveAiConfig(aiConfig);
@@ -259,7 +259,7 @@
           {#if aiConfig.useBackendAI && isLoggedIn()}
             <div class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
               <Cloud class="mb-1 size-4" />
-              <p>Stai usando l'AI del backend. I crediti vengono scalati automaticamente dal tuo abbonamento.</p>
+              <p>Stai usando l'AI inclusa nell'abbonamento. I crediti vengono scalati automaticamente.</p>
               <p class="mt-1 text-xs">Saldo: <strong>{creditInfo?.balance ?? 0}</strong> crediti</p>
             </div>
           {:else}
