@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { api } from '$lib/api/client';
+  import { isLoggedIn, logout } from '$lib/api/auth.svelte';
   import { Button } from '$lib/components/ui/button';
   import { FolderArchive, Loader, LogIn, LogOut, Settings, Sparkles, X } from 'lucide-svelte';
 
@@ -22,17 +22,14 @@
     clearProject: () => void;
   } = $props();
 
-  let isLoggedIn = $state(api.isLoggedIn());
-
   async function handleLogout() {
-    await api.logout();
-    isLoggedIn = false;
+    await logout();
     goto('/');
   }
 </script>
 
 <div class="flex items-center gap-2">
-  {#if isLoggedIn}
+  {#if isLoggedIn()}
     <Button variant="ghost" size="sm" onclick={handleLogout} title="Disconnetti">
       <LogOut class="mr-1.5 h-3.5 w-3.5" />
       Esci

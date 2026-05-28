@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { api } from '$lib/api/client';
+  import { login } from '$lib/api/auth.svelte';
 
   let email = $state('');
   let password = $state('');
@@ -15,7 +15,7 @@
     }
     loading = true;
     try {
-      await api.login(email, password);
+      await login(email, password);
       goto('/');
     } catch (e) {
       error = e instanceof Error ? e.message : 'Errore di login.';
