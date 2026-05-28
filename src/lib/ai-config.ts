@@ -2,6 +2,7 @@ import { getSetting, setSetting } from './db-sqlite';
 
 export interface AiConfig {
   enabled: boolean;
+  useBackendAI: boolean;
   provider: 'openai' | 'anthropic';
   endpoint: string;
   apiKey: string;
@@ -15,6 +16,7 @@ export interface AiConfig {
 
 export const defaultAiConfig: AiConfig = {
   enabled: false,
+  useBackendAI: false,
   provider: 'openai',
   endpoint: '',
   apiKey: '',

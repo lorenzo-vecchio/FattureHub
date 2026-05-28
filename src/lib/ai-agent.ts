@@ -125,6 +125,23 @@ function wrapFetchForDeepSeek(baseFetch: typeof fetch): typeof fetch {
 function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): any {
   const modelName = resolveModelName(config, role);
 
+  if (config.useBackendAI) {
+    const backendUrl = 'http://localhost:8080';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('fatturehub_access_token') : null;
+    const fetchWithAuth: typeof fetch = (input, init) => {
+      const headers = new Headers(init?.headers);
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+      return tauriFetch(input, { ...init, headers });
+    };
+    const provider = createOpenAI({
+      baseURL: backendUrl,
+      apiKey: token || 'backend',
+      fetch: fetchWithAuth as typeof fetch,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (provider as any).chat(modelName);
+  }
+
   if (config.provider === 'anthropic') {
     const provider = createAnthropic({
       apiKey: config.apiKey,

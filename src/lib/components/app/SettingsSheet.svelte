@@ -4,7 +4,7 @@
   import { Separator } from '$lib/components/ui/separator';
   import * as Sheet from '$lib/components/ui/sheet';
   import { getSetting, setSetting } from '$lib/db-sqlite';
-  import { Brain, LogOut, Mail, Settings, User as UserIcon } from 'lucide-svelte';
+  import { Brain, Cloud, LogOut, Mail, Settings, User as UserIcon } from 'lucide-svelte';
   import { resetMode, setMode, userPrefersMode } from 'mode-watcher';
   import AiSettingsFields from './settings/AiSettingsFields.svelte';
   import SwitchRow from './settings/SwitchRow.svelte';
@@ -57,6 +57,9 @@
   $effect(() => {
     if (open) {
       loadAiConfig().then((cfg) => {
+        if (isLoggedIn() && !cfg.useBackendAI && !cfg.apiKey) {
+          cfg = { ...cfg, useBackendAI: true, enabled: true };
+        }
         aiConfig = cfg;
       });
 
@@ -69,7 +72,14 @@
   });
 
   $effect(() => {
-    if (!open || isLoggedIn()) return;
+    if (!open) return;
+    if (aiConfig.useBackendAI) {
+      availableModels = [];
+      modelError = null;
+      modelLoading = false;
+      lastModelFetchKey = '';
+      return;
+    }
 
     const endpoint = aiConfig.endpoint.trim();
     const apiKey = aiConfig.apiKey.trim();
@@ -201,37 +211,58 @@
             </button>
           {/if}
         </div>
-      {:else}
-        <Separator />
 
+        <Separator />
+      {/if}
+
+      <SwitchRow
+        title="Archivia file importati"
+        description="Conserva una copia compressa dei file XML dopo l'importazione"
+        checked={keepFilesAfterImport}
+        label="Archivia file importati"
+        toggle={async () => {
+          keepFilesAfterImport = !keepFilesAfterImport;
+          await setSetting('keepFilesAfterImport', keepFilesAfterImport ? 'true' : 'false');
+        }}
+      />
+
+      <Separator />
+
+      <!-- AI Settings -->
+      <div class="space-y-4">
         <SwitchRow
-          title="Archivia file importati"
-          description="Conserva una copia compressa dei file XML dopo l'importazione"
-          checked={keepFilesAfterImport}
-          label="Archivia file importati"
+          title="Assistente AI"
+          description="Abilita o disabilita l'assistente AI nel progetto"
+          checked={aiConfig.enabled}
+          label="Abilita assistente AI"
           toggle={async () => {
-            keepFilesAfterImport = !keepFilesAfterImport;
-            await setSetting('keepFilesAfterImport', keepFilesAfterImport ? 'true' : 'false');
+            aiConfig = { ...aiConfig, enabled: !aiConfig.enabled };
+            await saveAiConfig(aiConfig);
+            onAiConfigChange?.(aiConfig);
           }}
         />
 
-        <Separator />
+        {#if aiConfig.enabled}
+          {#if isLoggedIn()}
+            <SwitchRow
+              title="AI del backend"
+              description="Usa l'AI inclusa nell'abbonamento (consuma crediti)"
+              checked={aiConfig.useBackendAI}
+              label="Usa AI del backend"
+              toggle={async () => {
+                aiConfig = { ...aiConfig, useBackendAI: !aiConfig.useBackendAI };
+                await saveAiConfig(aiConfig);
+              }}
+            />
+          {/if}
 
-        <!-- AI Settings -->
-        <div class="space-y-4">
-          <SwitchRow
-            title="Assistente AI"
-            description="Abilita o disabilita l'assistente AI nel progetto"
-            checked={aiConfig.enabled}
-            label="Abilita assistente AI"
-            toggle={async () => {
-              aiConfig = { ...aiConfig, enabled: !aiConfig.enabled };
-              await saveAiConfig(aiConfig);
-              onAiConfigChange?.(aiConfig);
-            }}
-          />
-
-          {#if aiConfig.enabled}
+          {#if aiConfig.useBackendAI && isLoggedIn()}
+            <div class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+              <Cloud class="mb-1 size-4" />
+              <p>Stai usando l'AI del backend. I crediti vengono scalati automaticamente dal tuo abbonamento.</p>
+              <p class="mt-1 text-xs">Saldo: <strong>{creditInfo?.balance ?? 0}</strong> crediti</p>
+            </div>
+          {:else}
             <AiSettingsFields
               {aiConfig}
               {availableModels}
@@ -250,8 +281,8 @@
               saveConfig={handleAiSave}
             />
           {/if}
-        </div>
-      {/if}
+        {/if}
+      </div>
     </div>
   </Sheet.Content>
 </Sheet.Root>
