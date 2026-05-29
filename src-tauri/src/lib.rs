@@ -52,7 +52,11 @@ fn set_document_edited(webview_window: tauri::WebviewWindow, edited: bool) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![force_exit, set_document_edited, http_request, encrypt::encrypt_data, encrypt::decrypt_data])
+    .invoke_handler(tauri::generate_handler![
+    force_exit, set_document_edited, http_request,
+    encrypt::generate_master_key, encrypt::wrap_master_key, encrypt::unwrap_master_key,
+    encrypt::encrypt_with_key, encrypt::decrypt_with_key,
+])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_process::init())

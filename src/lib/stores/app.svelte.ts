@@ -14,7 +14,7 @@ import {
     initializeDatabase,
     saveInvoicesBatch,
 } from '$lib/db-sqlite';
-import { isLoggedIn, getPassword } from '$lib/api/auth.svelte';
+import { isLoggedIn } from '$lib/api/auth.svelte';
 import { syncUploadProject, syncUpdateProject, syncUploadFatture } from '$lib/api/sync.svelte';
 import type { Filters } from '$lib/filters';
 import { applyFilters, countActiveFilters, emptyFilters } from '$lib/filters';
@@ -337,12 +337,10 @@ function createAppStore() {
 
   async function syncToBackend(projectId: string, projectName: string) {
     if (!isLoggedIn()) return;
-    const pw = getPassword();
-    if (!pw) return;
     try {
       const projectData = { fatture, filters };
-      await syncUploadProject(projectName, projectData, pw);
-      await syncUploadFatture(fatture, projectId, pw);
+      await syncUploadProject(projectName, projectData);
+      await syncUploadFatture(fatture, projectId);
     } catch (e) {
       errors.push('Errore di sincronizzazione: ' + (e instanceof Error ? e.message : ''));
     }

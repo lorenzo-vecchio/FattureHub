@@ -117,6 +117,20 @@ export class ApiClient {
     return this.request('/api/auth/me');
   }
 
+  async updateEncryptedKey(encryptedKey: string): Promise<any> {
+    return this.request('/api/auth/encrypted-key', {
+      method: 'PUT',
+      body: JSON.stringify({ encrypted_key: encryptedKey }),
+    });
+  }
+
+  async changePassword(oldPassword: string, newPassword: string, encryptedKey: string): Promise<any> {
+    return this.request('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword, encrypted_key: encryptedKey }),
+    });
+  }
+
   async getCredits(): Promise<any> {
     return this.request('/api/credits');
   }
