@@ -17,7 +17,11 @@ export async function login(email: string, password: string) {
 
 	const encKey = data.user?.encrypted_master_key;
 	if (encKey) {
-		_masterKey = await invoke<string>('unwrap_master_key', { password, encryptedB64: encKey });
+		try {
+			_masterKey = await invoke<string>('unwrap_master_key', { password, encryptedB64: encKey });
+		} catch {
+			throw new Error('Password errata o chiave di cifratura non valida. Se hai cambiato password su un altro dispositivo, usa la nuova password.');
+		}
 	} else {
 		_masterKey = await invoke<string>('generate_master_key');
 		const wrapped = await invoke<string>('wrap_master_key', { password, masterKeyB64: _masterKey });
@@ -28,8 +32,20 @@ export async function login(email: string, password: string) {
 	return data;
 }
 
+export async function reloadMasterKey(password: string): Promise<boolean> {
+	try {
+		const me = await api.getMe();
+		if (!me.encrypted_master_key) return false;
+		_masterKey = await invoke<string>('unwrap_master_key', { password, encryptedB64: me.encrypted_master_key });
+		return true;
+	} catch {
+		_masterKey = null;
+		return false;
+	}
+}
+
 export async function changePassword(oldPassword: string, newPassword: string) {
-	if (!_masterKey) throw new Error('No encryption key');
+	if (!_masterKey) throw new Error('Nessuna chiave di cifratura');
 	const wrapped = await invoke<string>('wrap_master_key', { password: newPassword, masterKeyB64: _masterKey });
 	await api.changePassword(oldPassword, newPassword, wrapped);
 }

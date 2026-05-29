@@ -36,7 +36,11 @@ export async function encryptData(data: string): Promise<string> {
 
 export async function decryptData(encrypted: string): Promise<string> {
   const key = requireKey();
-  return await invoke<string>('decrypt_with_key', { keyB64: key, encryptedB64: encrypted });
+  try {
+    return await invoke<string>('decrypt_with_key', { keyB64: key, encryptedB64: encrypted });
+  } catch {
+    throw new Error('Impossibile decifrare i dati. La chiave di cifratura potrebbe essere cambiata (password modificata su un altro dispositivo?). Effettua di nuovo il login.');
+  }
 }
 
 export async function syncUploadProject(name: string, data: any): Promise<any> {
