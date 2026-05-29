@@ -14,6 +14,8 @@ import {
     initializeDatabase,
     saveInvoicesBatch,
 } from '$lib/db-sqlite';
+import { isLoggedIn, getPassword } from '$lib/api/auth.svelte';
+import { syncUploadProject, syncUpdateProject, syncUploadFatture } from '$lib/api/sync.svelte';
 import type { Filters } from '$lib/filters';
 import { applyFilters, countActiveFilters, emptyFilters } from '$lib/filters';
 import { extractXmlFromP7m, parseXml, type Fattura } from '$lib/parser';
@@ -319,6 +321,8 @@ function createAppStore() {
     await updateProject(currentProject.id, currentProject.name, fatture, filters);
     syncSavedState();
     isDirty = false;
+
+    syncToBackend(currentProject.id, currentProject.name);
   }
 
   async function handleSaveNewProject(name: string): Promise<void> {
@@ -327,6 +331,21 @@ function createAppStore() {
     syncSavedState();
     isDirty = false;
     projectsList = await loadProjectsMeta();
+
+    syncToBackend(saved.id, saved.name);
+  }
+
+  async function syncToBackend(projectId: string, projectName: string) {
+    if (!isLoggedIn()) return;
+    const pw = getPassword();
+    if (!pw) return;
+    try {
+      const projectData = { fatture, filters };
+      await syncUploadProject(projectName, projectData, pw);
+      await syncUploadFatture(fatture, projectId, pw);
+    } catch (e) {
+      errors.push('Errore di sincronizzazione: ' + (e instanceof Error ? e.message : ''));
+    }
   }
 
   // ── Project opening ───────────────────────────────────────────────────────

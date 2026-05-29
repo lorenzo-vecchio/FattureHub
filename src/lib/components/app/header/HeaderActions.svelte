@@ -1,8 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { isLoggedIn, logout } from '$lib/api/auth.svelte';
+  import { getSyncState } from '$lib/api/sync.svelte';
   import { Button } from '$lib/components/ui/button';
-  import { FolderArchive, Loader, LogIn, LogOut, Settings, Sparkles, X } from 'lucide-svelte';
+  import { Cloud, FolderArchive, Loader, LogIn, LogOut, Settings, Sparkles, Upload, X } from 'lucide-svelte';
 
   let {
     fattureCount,
@@ -22,6 +23,8 @@
     clearProject: () => void;
   } = $props();
 
+  let sync = getSyncState();
+
   async function handleLogout() {
     await logout();
     goto('/');
@@ -29,6 +32,18 @@
 </script>
 
 <div class="flex items-center gap-2">
+  {#if sync.syncing}
+    <div class="flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1.5 text-xs text-primary">
+      {#if sync.syncLabel?.includes('Caricamento') || sync.syncLabel?.includes('Aggiornamento')}
+        <Upload class="size-3.5" />
+      {:else}
+        <Cloud class="size-3.5" />
+      {/if}
+      <Loader class="size-3 animate-spin" />
+      <span>{sync.syncLabel}</span>
+    </div>
+  {/if}
+
   {#if isLoggedIn()}
     <Button variant="ghost" size="sm" onclick={handleLogout} title="Disconnetti">
       <LogOut class="mr-1.5 h-3.5 w-3.5" />

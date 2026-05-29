@@ -1,3 +1,5 @@
+mod encrypt;
+
 #[tauri::command]
 fn force_exit() {
   std::process::exit(0);
@@ -50,7 +52,7 @@ fn set_document_edited(webview_window: tauri::WebviewWindow, edited: bool) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![force_exit, set_document_edited, http_request])
+    .invoke_handler(tauri::generate_handler![force_exit, set_document_edited, http_request, encrypt::encrypt_data, encrypt::decrypt_data])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_process::init())
