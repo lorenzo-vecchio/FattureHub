@@ -186,13 +186,15 @@ function createAppStore() {
       for (const lp of localMetas) {
         const remote = remoteProjects.find((r: any) => r.id === lp.id);
         if (!remote) {
-          const { loadProject } = await import('$lib/projects');
-          const project = await loadProject(lp.id);
-          if (project) {
-            let invs: Fattura[] = [];
-            try { invs = await getAllInvoices(lp.id); } catch {}
-            await syncToBackend(lp.id, lp.name, true, invs, project.filters);
-          }
+          try {
+            const { loadProject } = await import('$lib/projects');
+            const project = await loadProject(lp.id);
+            if (project) {
+              let invs: Fattura[] = [];
+              try { invs = await getAllInvoices(lp.id); } catch {}
+              await syncToBackend(lp.id, lp.name, true, invs, project.filters);
+            }
+          } catch { /* per-project error, continue with next */ }
         }
       }
 
@@ -385,23 +387,17 @@ function createAppStore() {
   async function syncToBackend(projectId: string, projectName: string, isNew: boolean, fattureData: Fattura[], filtersData: Filters) {
     if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
     if (fattureData.length === 0) return;
-    setSyncStatus('syncing');
-    try {
-      const projectData = { fatture: fattureData, filters: filtersData };
-      if (isNew) {
+    const projectData = { fatture: fattureData, filters: filtersData };
+    if (isNew) {
+      await syncCreateProject(projectName, projectData);
+    } else {
+      try {
+        await syncUpdateProject(projectId, projectName, projectData);
+      } catch {
         await syncCreateProject(projectName, projectData);
-      } else {
-        try {
-          await syncUpdateProject(projectId, projectName, projectData);
-        } catch {
-          await syncCreateProject(projectName, projectData);
-        }
       }
-      await syncUploadFatture(fattureData, projectId);
-      setSyncStatus('idle');
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : String(e));
     }
+    await syncUploadFatture(fattureData, projectId);
   }
 
   async function syncDeleteToBackend(id: string) {
