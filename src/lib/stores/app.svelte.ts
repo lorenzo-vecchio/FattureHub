@@ -15,7 +15,6 @@ import {
     saveInvoicesBatch,
 } from '$lib/db-sqlite';
 import { isLoggedIn } from '$lib/api/auth.svelte';
-import { syncUploadProject, syncUpdateProject, syncUploadFatture } from '$lib/api/sync.svelte';
 import type { Filters } from '$lib/filters';
 import { applyFilters, countActiveFilters, emptyFilters } from '$lib/filters';
 import { extractXmlFromP7m, parseXml, type Fattura } from '$lib/parser';
@@ -339,6 +338,7 @@ function createAppStore() {
   async function syncToBackend(projectId: string, projectName: string) {
     if (!isLoggedIn()) return;
     try {
+      const { syncUploadProject, syncUploadFatture } = await import('$lib/api/sync.svelte');
       const projectData = { fatture, filters };
       await syncUploadProject(projectName, projectData);
       await syncUploadFatture(fatture, projectId);
