@@ -35,11 +35,11 @@
       {/if}
     </div>
   </div>
-  <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+  <div class="flex shrink-0 items-center gap-1">
     <Button
       variant="ghost"
       size="icon"
-      class="h-7 w-7"
+      class="h-7 w-7 hover:bg-destructive/10"
       onclick={() => removeProject(project.id)}
       title="Elimina"
     >
