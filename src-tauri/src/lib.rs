@@ -1,3 +1,5 @@
+mod encrypt;
+
 #[tauri::command]
 fn force_exit() {
   std::process::exit(0);
@@ -52,6 +54,8 @@ pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
     force_exit, set_document_edited, http_request,
+    encrypt::generate_master_key, encrypt::wrap_master_key, encrypt::unwrap_master_key,
+    encrypt::encrypt_with_key, encrypt::decrypt_with_key,
 ])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
