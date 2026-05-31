@@ -2,6 +2,8 @@
   import type { ProjectMeta } from '$lib/projects';
   import { formatDate, formatLastOpenedDate } from '$lib/utils/date';
   import { CalendarPlus, Clock, FileText, Folder, Trash2 } from 'lucide-svelte';
+  import * as Dialog from '$lib/components/ui/dialog';
+  import { Button } from '$lib/components/ui/button';
 
   let {
     project,
@@ -14,13 +16,30 @@
   } = $props();
 
   let hover = $state(false);
+  let confirmOpen = $state(false);
 
   function handleDeleteClick() {
-    if (confirm(`Eliminare il progetto "${project.name}"?`)) {
-      ondelete?.(project.id);
-    }
+    confirmOpen = true;
   }
 </script>
+
+<Dialog.Root bind:open={confirmOpen}>
+  <Dialog.Portal>
+    <Dialog.Overlay />
+    <Dialog.Content class="sm:max-w-[400px]">
+      <Dialog.Header>
+        <Dialog.Title>Elimina progetto</Dialog.Title>
+        <Dialog.Description>
+          Eliminare il progetto "{project.name}"? Le fatture non salvate altrove verranno perse.
+        </Dialog.Description>
+      </Dialog.Header>
+      <Dialog.Footer class="flex gap-2 justify-end">
+        <Button variant="outline" onclick={() => confirmOpen = false}>Annulla</Button>
+        <Button variant="destructive" onclick={() => { confirmOpen = false; ondelete?.(project.id); }}>Elimina</Button>
+      </Dialog.Footer>
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <div
   class="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
