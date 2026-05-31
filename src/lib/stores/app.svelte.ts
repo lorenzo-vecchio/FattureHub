@@ -173,11 +173,28 @@ function createAppStore() {
 
       for (const rp of remoteProjects) {
         const local = localMetas.find(m => m.id === rp.id);
-        if (!local || new Date(rp.updated_at) > new Date(local.savedAt)) {
+        if (!local) {
           const { loadProject } = await import('$lib/projects');
           const project = await loadProject(rp.id);
-          if (project && !local) {
+          if (project) {
             fatture = await getAllInvoices();
+          }
+        }
+      }
+
+      for (const lp of localMetas) {
+        const remote = remoteProjects.find((r: any) => r.id === lp.id);
+        if (!remote) {
+          const { loadProject } = await import('$lib/projects');
+          const project = await loadProject(lp.id);
+          if (project) {
+            let invs: Fattura[] = [];
+            try {
+              invs = await getAllInvoices(lp.id);
+            } catch {}
+            if (invs.length > 0) {
+              await syncToBackend(lp.id, lp.name, true, invs, project.filters);
+            }
           }
         }
       }
