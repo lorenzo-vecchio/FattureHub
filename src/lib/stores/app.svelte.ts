@@ -373,7 +373,11 @@ function createAppStore() {
       if (isNew) {
         await syncCreateProject(projectName, projectData);
       } else {
-        await syncUpdateProject(projectId, projectName, projectData);
+        try {
+          await syncUpdateProject(projectId, projectName, projectData);
+        } catch {
+          await syncCreateProject(projectName, projectData);
+        }
       }
       await syncUploadFatture(fattureData, projectId);
       setSyncStatus('idle');
