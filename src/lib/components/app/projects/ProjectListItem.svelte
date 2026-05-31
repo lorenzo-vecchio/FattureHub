@@ -1,18 +1,26 @@
 <script lang="ts">
   import type { ProjectMeta } from '$lib/projects';
   import { formatDate, formatLastOpenedDate } from '$lib/utils/date';
-  import { CalendarPlus, Clock, FileText, Folder } from 'lucide-svelte';
+  import { CalendarPlus, Clock, FileText, Folder, Trash2 } from 'lucide-svelte';
 
   let {
     project,
     onopen,
+    ondelete,
   }: {
     project: ProjectMeta;
     onopen: (project: ProjectMeta) => void;
+    ondelete?: (id: string) => void;
   } = $props();
+
+  let hover = $state(false);
 </script>
 
-<div class="group flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent">
+<div
+  class="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
+  onmouseenter={() => hover = true}
+  onmouseleave={() => hover = false}
+>
   <div class="min-w-0 flex-1">
     <div class="flex items-center gap-3">
       <div class="rounded-full bg-primary/10 p-2">
@@ -42,10 +50,23 @@
       </div>
     </div>
   </div>
-  <button
-    onclick={() => onopen(project)}
-    class="ml-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 opacity-0 group-hover:opacity-100"
-  >
-    Apri
-  </button>
+  {#if hover}
+    <div class="ml-4 flex items-center gap-2">
+      {#if ondelete}
+        <button
+          onclick={() => ondelete(project.id)}
+          class="rounded-md px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+        >
+          <Trash2 class="mr-1 h-4 w-4 inline" />
+          Elimina
+        </button>
+      {/if}
+      <button
+        onclick={() => onopen(project)}
+        class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        Apri
+      </button>
+    </div>
+  {/if}
 </div>
