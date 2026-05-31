@@ -28,30 +28,30 @@
 
 <ModeWatcher />
 
-<div class="min-h-screen bg-muted/40">
-  <AppHeader
-    fattureCount={app.fatture.length}
-    activeFilters={app.activeFilters}
-    isDirty={app.isDirty}
-    currentProjectName={app.currentProject?.name ?? null}
-    aiEnabled={app.aiConfig.enabled}
-    isAiRunning={app.isAiRunning}
-    onclear={app.handleClearClick}
-    onopenprojects={() => (app.projectsOpen = true)}
-    opensettings={() => (app.settingsOpen = true)}
-    openai={() => (app.aiOpen = true)}
-  />
+<TooltipProvider>
+  <div class="min-h-screen bg-muted/40">
+    <AppHeader
+      fattureCount={app.fatture.length}
+      activeFilters={app.activeFilters}
+      isDirty={app.isDirty}
+      currentProjectName={app.currentProject?.name ?? null}
+      aiEnabled={app.aiConfig.enabled}
+      isAiRunning={app.isAiRunning}
+      onclear={app.handleClearClick}
+      onopenprojects={() => (app.projectsOpen = true)}
+      opensettings={() => (app.settingsOpen = true)}
+      openai={() => (app.aiOpen = true)}
+    />
 
-  <div class="mx-auto max-w-7xl px-6 py-6">
-    {#if app.errors.length > 0}
-      <ErrorsCard errors={app.errors} />
-    {/if}
+    <div class="mx-auto max-w-7xl px-6 py-6">
+      {#if app.errors.length > 0}
+        <ErrorsCard errors={app.errors} />
+      {/if}
 
-    <TooltipProvider>
       {@render children()}
-    </TooltipProvider>
+    </div>
   </div>
-</div>
+</TooltipProvider>
 
 <!-- Global sheets -->
 <ProjectsSheet bind:open={app.projectsOpen} onopen={app.handleOpenProjectRequest} />
