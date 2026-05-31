@@ -161,6 +161,32 @@ function createAppStore() {
 
   // ── Tauri lifecycle ───────────────────────────────────────────────────────
   let unlistenClose: (() => void) | undefined;
+  let _syncTimer: ReturnType<typeof setInterval> | undefined;
+
+  async function backgroundSync() {
+    if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
+    if (loading) return;
+    try {
+      const { getApi } = await import('$lib/api/auth.svelte');
+      const remoteProjects: any[] = await getApi().getProjects();
+      const localMetas = await loadProjectsMeta();
+
+      for (const rp of remoteProjects) {
+        const local = localMetas.find(m => m.id === rp.id);
+        if (!local || new Date(rp.updated_at) > new Date(local.savedAt)) {
+          const { loadProject } = await import('$lib/projects');
+          const project = await loadProject(rp.id);
+          if (project && !local) {
+            fatture = await getAllInvoices();
+          }
+        }
+      }
+
+      if (!isDirty && !loading) {
+        projectsList = await loadProjectsMeta();
+      }
+    } catch {}
+  }
 
   async function init() {
     await initializeDatabase();
@@ -183,11 +209,14 @@ function createAppStore() {
     } catch {
       // Not running inside Tauri (e.g. browser dev mode) — ignore.
     }
+
+    _syncTimer = setInterval(backgroundSync, 60000);
   }
 
   function destroy() {
     unlistenClose?.();
     cleanupEffects();
+    if (_syncTimer) clearInterval(_syncTimer);
   }
 
   // ── File import ───────────────────────────────────────────────────────────
@@ -385,6 +414,12 @@ function createAppStore() {
 
   async function handleDeleteProject(id: string) {
     await deleteProject(id);
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('fatturehub_access_token')) {
+      try {
+        const { getApi } = await import('$lib/api/auth.svelte');
+        await getApi().deleteProject(id);
+      } catch {}
+    }
     projectsList = await loadProjectsMeta();
     if (currentProject?.id === id) {
       currentProject = null;
