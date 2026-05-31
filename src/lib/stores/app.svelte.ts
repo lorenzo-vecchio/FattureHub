@@ -20,6 +20,7 @@ import type { Filters } from '$lib/filters';
 import { applyFilters, countActiveFilters, emptyFilters } from '$lib/filters';
 import { extractXmlFromP7m, parseXml, type Fattura } from '$lib/parser';
 import {
+    deleteProject,
     loadProject,
     loadProjectsMeta,
     saveProject,
@@ -380,6 +381,17 @@ function createAppStore() {
     if (project) await handleOpenProjectRequest(project);
   }
 
+  async function handleDeleteProject(id: string) {
+    await deleteProject(id);
+    projectsList = await loadProjectsMeta();
+    if (currentProject?.id === id) {
+      currentProject = null;
+      fatture = [];
+      filters = emptyFilters();
+      syncSavedState();
+    }
+  }
+
   async function refreshProjectsList() {
     loadingProjects = true;
     projectsList = await loadProjectsMeta();
@@ -524,6 +536,7 @@ function createAppStore() {
     handleSaveNewProject,
     handleOpenProjectRequest,
     handleOpenProjectFromList,
+    handleDeleteProject,
     handleClearClick,
     handleRemoveInvoice,
     resetFilters,

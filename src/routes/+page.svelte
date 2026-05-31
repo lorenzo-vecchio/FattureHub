@@ -30,5 +30,6 @@
     projects={app.projectsList}
     onimport={() => (app.importDialogOpen = true)}
     onopen={app.handleOpenProjectFromList}
+    ondelete={app.handleDeleteProject}
   />
 {/if}

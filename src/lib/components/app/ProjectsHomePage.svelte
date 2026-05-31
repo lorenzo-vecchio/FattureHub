@@ -7,10 +7,12 @@
     projects,
     onimport,
     onopen,
+    ondelete,
   }: {
     projects: ProjectMeta[];
     onimport: () => void;
     onopen: (project: ProjectMeta) => void;
+    ondelete?: (id: string) => void;
   } = $props();
 </script>
 
@@ -19,7 +21,7 @@
 
   <div class="space-y-3">
     {#each projects as project (project.id)}
-      <ProjectListItem {project} {onopen} />
+      <ProjectListItem {project} {onopen} {ondelete} />
     {/each}
   </div>
 </div>
