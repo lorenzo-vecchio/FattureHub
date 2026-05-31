@@ -365,7 +365,7 @@ function createAppStore() {
   }
 
   async function syncToBackend(projectId: string, projectName: string) {
-    if (!isLoggedIn()) return;
+    if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
     setSyncStatus('syncing');
     try {
       const { syncUploadProject, syncUploadFatture } = await import('$lib/api/sync.svelte');
@@ -376,6 +376,14 @@ function createAppStore() {
     } catch (e) {
       setSyncError(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  async function syncDeleteToBackend(id: string) {
+    if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
+    try {
+      const { syncDeleteProject } = await import('$lib/api/sync.svelte');
+      await syncDeleteProject(id);
+    } catch {}
   }
 
   // ── Project opening ───────────────────────────────────────────────────────
@@ -414,12 +422,7 @@ function createAppStore() {
 
   async function handleDeleteProject(id: string) {
     await deleteProject(id);
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('fatturehub_access_token')) {
-      try {
-        const { getApi } = await import('$lib/api/auth.svelte');
-        await getApi().deleteProject(id);
-      } catch {}
-    }
+    syncDeleteToBackend(id);
     projectsList = await loadProjectsMeta();
     if (currentProject?.id === id) {
       currentProject = null;
