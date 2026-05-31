@@ -5,6 +5,7 @@
   import { onDestroy, onMount } from 'svelte';
 
   import AppHeader from '$lib/components/app/AppHeader.svelte';
+  import { TooltipProvider } from '$lib/components/ui/tooltip';
   import AiRunningDialog from '$lib/components/app/AiRunningDialog.svelte';
   import AiSheet from '$lib/components/app/AiSheet.svelte';
   import ErrorsCard from '$lib/components/app/ErrorsCard.svelte';
@@ -46,7 +47,9 @@
       <ErrorsCard errors={app.errors} />
     {/if}
 
-    {@render children()}
+    <TooltipProvider>
+      {@render children()}
+    </TooltipProvider>
   </div>
 </div>
 
