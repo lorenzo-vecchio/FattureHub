@@ -43,14 +43,14 @@ fn aes_decrypt(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>, String> {
 const SALT: &[u8] = b"fatturehub-encryption-v1";
 
 #[tauri::command]
-pub fn generate_master_key() -> String {
+pub async fn generate_master_key() -> String {
     let mut key = [0u8; 32];
     OsRng.fill_bytes(&mut key);
     BASE64.encode(&key)
 }
 
 #[tauri::command]
-pub fn wrap_master_key(password: &str, master_key_b64: &str) -> Result<String, String> {
+pub async fn wrap_master_key(password: &str, master_key_b64: &str) -> Result<String, String> {
     let mk = BASE64
         .decode(master_key_b64)
         .map_err(|e| format!("base64 decode: {}", e))?;
@@ -60,7 +60,7 @@ pub fn wrap_master_key(password: &str, master_key_b64: &str) -> Result<String, S
 }
 
 #[tauri::command]
-pub fn unwrap_master_key(password: &str, encrypted_b64: &str) -> Result<String, String> {
+pub async fn unwrap_master_key(password: &str, encrypted_b64: &str) -> Result<String, String> {
     let data = BASE64
         .decode(encrypted_b64)
         .map_err(|e| format!("base64 decode: {}", e))?;
@@ -70,7 +70,7 @@ pub fn unwrap_master_key(password: &str, encrypted_b64: &str) -> Result<String, 
 }
 
 #[tauri::command]
-pub fn encrypt_with_key(key_b64: &str, data: &str) -> Result<String, String> {
+pub async fn encrypt_with_key(key_b64: &str, data: &str) -> Result<String, String> {
     let key_bytes = BASE64
         .decode(key_b64)
         .map_err(|e| format!("base64 decode: {}", e))?;
@@ -84,7 +84,7 @@ pub fn encrypt_with_key(key_b64: &str, data: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn decrypt_with_key(key_b64: &str, encrypted_b64: &str) -> Result<String, String> {
+pub async fn decrypt_with_key(key_b64: &str, encrypted_b64: &str) -> Result<String, String> {
     let data = BASE64
         .decode(encrypted_b64)
         .map_err(|e| format!("base64 decode: {}", e))?;
