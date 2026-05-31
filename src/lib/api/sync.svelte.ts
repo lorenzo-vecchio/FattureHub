@@ -14,7 +14,7 @@ async function syncCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export async function syncUploadProject(name: string, data: any): Promise<any> {
+export async function syncCreateProject(name: string, data: any): Promise<any> {
   return syncCall('Salvataggio progetto...', async () => {
     const api = getApi();
     return await api.createProject(name, data);
