@@ -166,6 +166,7 @@ function createAppStore() {
   async function backgroundSync() {
     if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
     if (loading) return;
+    setSyncStatus('syncing');
     try {
       const { getApi } = await import('$lib/api/auth.svelte');
       const remoteProjects: any[] = await getApi().getProjects();
@@ -189,12 +190,8 @@ function createAppStore() {
           const project = await loadProject(lp.id);
           if (project) {
             let invs: Fattura[] = [];
-            try {
-              invs = await getAllInvoices(lp.id);
-            } catch {}
-            if (invs.length > 0) {
-              await syncToBackend(lp.id, lp.name, true, invs, project.filters);
-            }
+            try { invs = await getAllInvoices(lp.id); } catch {}
+            await syncToBackend(lp.id, lp.name, true, invs, project.filters);
           }
         }
       }
@@ -202,7 +199,10 @@ function createAppStore() {
       if (!isDirty && !loading) {
         projectsList = await loadProjectsMeta();
       }
-    } catch {}
+      setSyncStatus('idle');
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   async function init() {
@@ -227,6 +227,7 @@ function createAppStore() {
       // Not running inside Tauri (e.g. browser dev mode) — ignore.
     }
 
+    backgroundSync();
     _syncTimer = setInterval(backgroundSync, 60000);
   }
 
