@@ -5,6 +5,8 @@
  * Call `app.init()` from the root layout's onMount and `app.destroy()` from onDestroy.
  */
 
+import { isLoggedIn } from '$lib/api/auth.svelte';
+import { setSyncStatus, setSyncError } from '$lib/api/sync-status.svelte';
 import { defaultAiConfig, loadAiConfig, type AiConfig } from '$lib/ai-config';
 import {
     clearAllInvoices,
@@ -321,6 +323,7 @@ function createAppStore() {
     await updateProject(currentProject.id, currentProject.name, fatture, filters);
     syncSavedState();
     isDirty = false;
+    syncToBackend(currentProject.id, currentProject.name);
   }
 
   async function handleSaveNewProject(name: string): Promise<void> {
@@ -329,6 +332,21 @@ function createAppStore() {
     syncSavedState();
     isDirty = false;
     projectsList = await loadProjectsMeta();
+    syncToBackend(saved.id, saved.name);
+  }
+
+  async function syncToBackend(projectId: string, projectName: string) {
+    if (!isLoggedIn()) return;
+    setSyncStatus('syncing');
+    try {
+      const { syncUploadProject, syncUploadFatture } = await import('$lib/api/sync.svelte');
+      const projectData = { fatture, filters };
+      await syncUploadProject(projectName, projectData);
+      await syncUploadFatture(fatture, projectId);
+      setSyncStatus('idle');
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   // ── Project opening ───────────────────────────────────────────────────────

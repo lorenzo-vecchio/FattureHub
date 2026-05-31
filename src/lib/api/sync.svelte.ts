@@ -1,25 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
 import { isLoggedIn, getMasterKey, getApi } from './auth.svelte';
-
-let syncing = $state(false);
-let syncLabel = $state('');
-
-export function getSyncState() {
-  return {
-    get syncing() { return syncing; },
-    get syncLabel() { return syncLabel; },
-  };
-}
+import { setSyncStatus, setSyncError } from './sync-status.svelte';
 
 async function syncCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
   if (!isLoggedIn()) throw new Error('Not logged in');
-  syncing = true;
-  syncLabel = label;
+  setSyncStatus('syncing');
   try {
     return await fn();
+  } catch (e) {
+    setSyncError(e instanceof Error ? e.message : String(e));
+    throw e;
   } finally {
-    syncing = false;
-    syncLabel = '';
+    setSyncStatus('idle');
   }
 }
 
