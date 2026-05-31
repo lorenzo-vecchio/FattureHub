@@ -25,7 +25,7 @@
   <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title>{title}</Dialog.Title>
-      <Dialog.Description>{@html message}</Dialog.Description>
+      <Dialog.Description>{message}</Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="flex gap-2">
       <Button variant="outline" onclick={() => open = false}>{cancelLabel}</Button>
