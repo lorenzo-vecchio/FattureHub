@@ -21,8 +21,7 @@
 </script>
 
 <div
-  class="flex items-start gap-3 rounded-lg px-3 py-3 transition-colors"
-  class:hover:bg-muted/60={true}
+  class="flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/60"
   onmouseenter={() => hover = true}
   onmouseleave={() => hover = false}
 >
@@ -42,26 +41,28 @@
       {/if}
     </div>
   </div>
-  <div class="flex shrink-0 items-center gap-1" class:invisible={!hover}>
-    <Button
-      variant="ghost"
-      size="icon"
-      class="h-7 w-7 text-destructive hover:bg-destructive/10"
-      onclick={() => removeProject(project.id)}
-      title="Elimina"
-    >
-      <Trash2 class="h-3.5 w-3.5" />
-    </Button>
-    <Button
-      size="sm"
-      class="h-7 text-xs"
-      disabled={opening}
-      onclick={() => openProject(project.id)}
-    >
-      {#if opening}
-        <Loader class="mr-1.5 h-3 w-3 animate-spin" />
-      {/if}
-      Apri
-    </Button>
-  </div>
+  {#if hover}
+    <div class="flex shrink-0 items-center gap-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        class="h-7 w-7 text-destructive hover:bg-destructive/10"
+        onclick={() => removeProject(project.id)}
+        title="Elimina"
+      >
+        <Trash2 class="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        size="sm"
+        class="h-7 text-xs"
+        disabled={opening}
+        onclick={() => openProject(project.id)}
+      >
+        {#if opening}
+          <Loader class="mr-1.5 h-3 w-3 animate-spin" />
+        {/if}
+        Apri
+      </Button>
+    </div>
+  {/if}
 </div>
