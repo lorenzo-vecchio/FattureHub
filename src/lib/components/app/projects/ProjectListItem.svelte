@@ -2,6 +2,7 @@
   import type { ProjectMeta } from '$lib/projects';
   import { formatDate, formatLastOpenedDate } from '$lib/utils/date';
   import { CalendarPlus, Clock, FileText, Folder, Trash2 } from 'lucide-svelte';
+  import ConfirmDialog from '../ConfirmDialog.svelte';
 
   let {
     project,
@@ -14,7 +15,25 @@
   } = $props();
 
   let hover = $state(false);
+  let confirmOpen = $state(false);
+  let deleting = $state(false);
+
+  async function handleConfirmDelete() {
+    confirmOpen = false;
+    deleting = true;
+    ondelete?.(project.id);
+  }
 </script>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Elimina progetto"
+  message="Sei sicuro di voler eliminare il progetto &ldquo;{project.name}&rdquo;? Le fatture non salvate altrove verranno perse."
+  confirmLabel="Elimina"
+  cancelLabel="Annulla"
+  variant="destructive"
+  onconfirm={handleConfirmDelete}
+/>
 
 <div
   class="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
@@ -52,9 +71,9 @@
   </div>
   {#if hover}
     <div class="ml-4 flex items-center gap-2">
-      {#if ondelete}
+      {#if ondelete && !deleting}
         <button
-          onclick={() => ondelete(project.id)}
+          onclick={() => confirmOpen = true}
           class="rounded-md px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
         >
           <Trash2 class="mr-1 h-4 w-4 inline" />
