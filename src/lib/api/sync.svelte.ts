@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { isLoggedIn, getMasterKey, getApi } from './auth.svelte';
+import { isLoggedIn, ensureMasterKey, getMasterKey, getApi } from './auth.svelte';
 import { setSyncStatus, setSyncError } from './sync-status.svelte';
 
 async function syncCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
@@ -15,19 +15,20 @@ async function syncCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-function requireKey(): string {
-  const key = getMasterKey();
-  if (!key) throw new Error('Encryption key not available. Re-login required.');
+async function requireKey(): Promise<string> {
+  let key = getMasterKey();
+  if (!key) key = await ensureMasterKey();
+  if (!key) throw new Error('Crittografia non disponibile. Effettua di nuovo il login per ripristinare la chiave.');
   return key;
 }
 
 export async function encryptData(data: string): Promise<string> {
-  const key = requireKey();
+  const key = await requireKey();
   return await invoke<string>('encrypt_with_key', { keyB64: key, data });
 }
 
 export async function decryptData(encrypted: string): Promise<string> {
-  const key = requireKey();
+  const key = await requireKey();
   try {
     return await invoke<string>('decrypt_with_key', { keyB64: key, encryptedB64: encrypted });
   } catch {

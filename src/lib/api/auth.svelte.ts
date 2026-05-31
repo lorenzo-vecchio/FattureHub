@@ -7,16 +7,8 @@ try {
 } catch {}
 
 let loggedIn = $state(api.isLoggedIn());
+let _masterKey = $state<string | null>(null);
 
-function getSessionKey(): string | null {
-  try { return sessionStorage.getItem('fatturehub_master_key'); } catch { return null; }
-}
-function setSessionKey(key: string | null) {
-  try {
-    if (key) sessionStorage.setItem('fatturehub_master_key', key);
-    else sessionStorage.removeItem('fatturehub_master_key');
-  } catch {}
-}
 function getSessionPassword(): string | null {
   try { return sessionStorage.getItem('fatturehub_session_password'); } catch { return null; }
 }
@@ -27,13 +19,30 @@ function setSessionPassword(pw: string | null) {
   } catch {}
 }
 
-let _masterKey = $state<string | null>(loggedIn ? getSessionKey() : null);
+async function deriveMasterKey(password: string): Promise<string | null> {
+  if (!_invoke) return null;
+  try {
+    const me = await api.getMe();
+    if (!me.encrypted_master_key) return null;
+    return await _invoke('unwrap_master_key', { password, encryptedB64: me.encrypted_master_key });
+  } catch {
+    return null;
+  }
+}
 
 export function isLoggedIn() {
   return loggedIn;
 }
 
 export function getMasterKey(): string | null {
+  return _masterKey;
+}
+
+export async function ensureMasterKey(): Promise<string | null> {
+  if (_masterKey) return _masterKey;
+  const pw = getSessionPassword();
+  if (!pw) return null;
+  _masterKey = await deriveMasterKey(pw);
   return _masterKey;
 }
 
@@ -52,44 +61,16 @@ export async function login(email: string, password: string) {
     _masterKey = await _invoke('generate_master_key');
     const wrapped = await _invoke('wrap_master_key', { password, masterKeyB64: _masterKey });
     await api.updateEncryptedKey(wrapped);
-  } else {
-    _masterKey = null;
   }
 
-  if (_masterKey) setSessionKey(_masterKey);
   loggedIn = true;
   return data;
 }
 
-export async function tryRestoreMasterKey(): Promise<boolean> {
-  const pw = getSessionPassword();
-  if (!pw || !_invoke) return false;
-  try {
-    const me = await api.getMe();
-    if (!me.encrypted_master_key) return false;
-    _masterKey = await _invoke('unwrap_master_key', { password: pw, encryptedB64: me.encrypted_master_key });
-    if (_masterKey) setSessionKey(_masterKey);
-    return !!_masterKey;
-  } catch {
-    return false;
-  }
-}
-
 export async function reloadMasterKey(password: string): Promise<boolean> {
-  if (!_invoke) return false;
-  try {
-    const me = await api.getMe();
-    if (!me.encrypted_master_key) return false;
-    _masterKey = await _invoke('unwrap_master_key', { password, encryptedB64: me.encrypted_master_key });
-    if (_masterKey) {
-      setSessionKey(_masterKey);
-      setSessionPassword(password);
-    }
-    return !!_masterKey;
-  } catch {
-    _masterKey = null;
-    return false;
-  }
+  _masterKey = await deriveMasterKey(password);
+  if (_masterKey) setSessionPassword(password);
+  return !!_masterKey;
 }
 
 export async function changePassword(oldPassword: string, newPassword: string) {
@@ -103,7 +84,6 @@ export async function logout() {
   await api.logout();
   loggedIn = false;
   _masterKey = null;
-  setSessionKey(null);
   setSessionPassword(null);
 }
 
