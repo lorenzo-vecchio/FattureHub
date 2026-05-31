@@ -16,9 +16,16 @@
     removeProject: (id: string) => void;
     openProject: (id: string) => void;
   } = $props();
+
+  let hover = $state(false);
 </script>
 
-<div class="group flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/60">
+<div
+  class="flex items-start gap-3 rounded-lg px-3 py-3 transition-colors"
+  class:hover:bg-muted/60={true}
+  onmouseenter={() => hover = true}
+  onmouseleave={() => hover = false}
+>
   <div class="min-w-0 flex-1">
     <p class="truncate text-sm font-medium">{project.name}</p>
     <div class="mt-1 flex flex-wrap items-center gap-1.5">
@@ -35,7 +42,7 @@
       {/if}
     </div>
   </div>
-  <div class="flex shrink-0 items-center gap-1 invisible group-hover:visible">
+  <div class="flex shrink-0 items-center gap-1" class:invisible={!hover}>
     <Button
       variant="ghost"
       size="icon"
