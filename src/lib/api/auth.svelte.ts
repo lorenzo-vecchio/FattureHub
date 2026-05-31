@@ -2,7 +2,19 @@ import { invoke } from '@tauri-apps/api/core';
 import { api } from './client';
 
 let loggedIn = $state(api.isLoggedIn());
-let _masterKey = $state<string | null>(null);
+
+function loadStoredKey(): string | null {
+	try {
+		return localStorage.getItem('fatturehub_master_key');
+	} catch { return null; }
+}
+
+function storeKey(key: string | null) {
+	if (key) localStorage.setItem('fatturehub_master_key', key);
+	else localStorage.removeItem('fatturehub_master_key');
+}
+
+let _masterKey = $state<string | null>(loggedIn ? loadStoredKey() : null);
 
 export function isLoggedIn() {
 	return loggedIn;
@@ -28,6 +40,7 @@ export async function login(email: string, password: string) {
 		await api.updateEncryptedKey(wrapped);
 	}
 
+	if (_masterKey) storeKey(_masterKey);
 	loggedIn = true;
 	return data;
 }
@@ -54,6 +67,7 @@ export async function logout() {
 	await api.logout();
 	loggedIn = false;
 	_masterKey = null;
+	storeKey(null);
 }
 
 export function getApi() {
