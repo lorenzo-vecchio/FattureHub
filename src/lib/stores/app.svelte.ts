@@ -352,7 +352,7 @@ function createAppStore() {
     await updateProject(currentProject.id, currentProject.name, fatture, filters);
     syncSavedState();
     isDirty = false;
-    syncToBackend(currentProject.id, currentProject.name, false);
+    syncToBackend(currentProject.id, currentProject.name, false, fatture, filters);
   }
 
   async function handleSaveNewProject(name: string): Promise<void> {
@@ -361,21 +361,22 @@ function createAppStore() {
     syncSavedState();
     isDirty = false;
     projectsList = await loadProjectsMeta();
-    syncToBackend(saved.id, saved.name, true);
+    syncToBackend(saved.id, saved.name, true, fatture, filters);
   }
 
-  async function syncToBackend(projectId: string, projectName: string, isNew: boolean) {
+  async function syncToBackend(projectId: string, projectName: string, isNew: boolean, fattureData: Fattura[], filtersData: Filters) {
     if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
+    if (fattureData.length === 0) return;
     setSyncStatus('syncing');
     try {
       const { syncCreateProject, syncUpdateProject, syncUploadFatture } = await import('$lib/api/sync.svelte');
-      const projectData = { fatture, filters };
+      const projectData = { fatture: fattureData, filters: filtersData };
       if (isNew) {
         await syncCreateProject(projectName, projectData);
       } else {
         await syncUpdateProject(projectId, projectName, projectData);
       }
-      await syncUploadFatture(fatture, projectId);
+      await syncUploadFatture(fattureData, projectId);
       setSyncStatus('idle');
     } catch (e) {
       setSyncError(e instanceof Error ? e.message : String(e));
