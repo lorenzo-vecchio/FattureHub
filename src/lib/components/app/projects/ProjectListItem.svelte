@@ -42,6 +42,8 @@
 </Dialog.Root>
 
 <div
+  role="button"
+  tabindex="-1"
   class="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
   onmouseenter={() => hover = true}
   onmouseleave={() => hover = false}

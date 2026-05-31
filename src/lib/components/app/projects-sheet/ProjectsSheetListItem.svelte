@@ -21,6 +21,8 @@
 </script>
 
 <div
+  role="button"
+  tabindex="-1"
   class="flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/60"
   onmouseenter={() => hover = true}
   onmouseleave={() => hover = false}
