@@ -5,8 +5,8 @@
  * Call `app.init()` from the root layout's onMount and `app.destroy()` from onDestroy.
  */
 
-import { isLoggedIn } from '$lib/api/auth.svelte';
 import { setSyncStatus, setSyncError } from '$lib/api/sync-status.svelte';
+import { syncCreateProject, syncUpdateProject, syncUploadFatture, syncDeleteProject as syncDelProject } from '$lib/api/sync.svelte';
 import { defaultAiConfig, loadAiConfig, type AiConfig } from '$lib/ai-config';
 import {
     clearAllInvoices,
@@ -369,7 +369,6 @@ function createAppStore() {
     if (fattureData.length === 0) return;
     setSyncStatus('syncing');
     try {
-      const { syncCreateProject, syncUpdateProject, syncUploadFatture } = await import('$lib/api/sync.svelte');
       const projectData = { fatture: fattureData, filters: filtersData };
       if (isNew) {
         await syncCreateProject(projectName, projectData);
@@ -386,8 +385,7 @@ function createAppStore() {
   async function syncDeleteToBackend(id: string) {
     if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
     try {
-      const { syncDeleteProject } = await import('$lib/api/sync.svelte');
-      await syncDeleteProject(id);
+      await syncDelProject(id);
     } catch {}
   }
 
