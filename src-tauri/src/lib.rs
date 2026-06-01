@@ -1,4 +1,5 @@
 mod encrypt;
+mod keychain;
 
 #[tauri::command]
 fn force_exit() {
@@ -56,6 +57,7 @@ pub fn run() {
     force_exit, set_document_edited, http_request,
     encrypt::generate_master_key, encrypt::wrap_master_key, encrypt::unwrap_master_key,
     encrypt::encrypt_with_key, encrypt::decrypt_with_key,
+    keychain::store_master_key, keychain::get_master_key, keychain::delete_master_key,
 ])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())

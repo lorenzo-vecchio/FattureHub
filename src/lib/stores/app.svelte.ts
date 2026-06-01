@@ -194,8 +194,17 @@ function createAppStore() {
               try { invs = await getAllInvoices(lp.id); } catch {}
               await syncToBackend(lp.id, lp.name, true, invs, project.filters);
             }
-          } catch { /* per-project error, continue with next */ }
+          } catch (e) { console.error('background sync error:', e); }
         }
+      }
+
+      // auto-create a project for unassigned invoices
+      const invoicesWithoutProject = await getAllInvoices(null);
+      if (invoicesWithoutProject.length > 0 && localMetas.length === 0) {
+        const { saveProject } = await import('$lib/projects');
+        const saved = await saveProject('Cloud', invoicesWithoutProject, filters);
+        projectsList = await loadProjectsMeta();
+        await syncToBackend(saved.id, saved.name, true, invoicesWithoutProject, filters);
       }
 
       if (!isDirty && !loading) {
@@ -211,6 +220,9 @@ function createAppStore() {
     await initializeDatabase();
     fatture = await getAllInvoices();
     aiConfig = await loadAiConfig();
+
+    const { initMasterKey } = await import('$lib/api/auth.svelte');
+    await initMasterKey();
 
     loadingProjects = true;
     projectsList = await loadProjectsMeta();
@@ -386,18 +398,19 @@ function createAppStore() {
 
   async function syncToBackend(projectId: string, projectName: string, isNew: boolean, fattureData: Fattura[], filtersData: Filters) {
     if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
-    if (fattureData.length === 0) return;
-    const projectData = { fatture: fattureData, filters: filtersData };
+    const projectData = { filters: filtersData };
     if (isNew) {
-      await syncCreateProject(projectName, projectData);
+      await syncCreateProject(projectName, projectData, projectId);
     } else {
       try {
         await syncUpdateProject(projectId, projectName, projectData);
       } catch {
-        await syncCreateProject(projectName, projectData);
+        await syncCreateProject(projectName, projectData, projectId);
       }
     }
-    await syncUploadFatture(fattureData, projectId);
+    if (fattureData.length > 0) {
+      await syncUploadFatture(fattureData, projectId);
+    }
   }
 
   async function syncDeleteToBackend(id: string) {

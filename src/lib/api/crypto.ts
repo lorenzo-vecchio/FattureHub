@@ -42,3 +42,22 @@ export async function unwrapMasterKey(password: string, encryptedB64: string): P
   if (!invoke) throw new Error('Crittografia non disponibile');
   return await invoke('unwrap_master_key', { password, encryptedB64 }) as string;
 }
+
+export async function storeMasterKey(userId: string, keyB64: string): Promise<void> {
+  const invoke = await ensureInvoke();
+  if (!invoke) return;
+  await invoke('store_master_key', { userId, keyB64 });
+}
+
+export async function getMasterKeyFromStorage(userId: string): Promise<string | null> {
+  const invoke = await ensureInvoke();
+  if (!invoke) return null;
+  const result = await invoke('get_master_key', { userId }) as string | null;
+  return result ?? null;
+}
+
+export async function deleteMasterKeyFromStorage(userId: string): Promise<void> {
+  const invoke = await ensureInvoke();
+  if (!invoke) return;
+  await invoke('delete_master_key', { userId });
+}

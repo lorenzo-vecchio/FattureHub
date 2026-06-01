@@ -158,10 +158,10 @@ export class ApiClient {
     return this.request('/api/projects');
   }
 
-  async createProject(name: string, data: any): Promise<any> {
+  async createProject(name: string, data: any, id?: string): Promise<any> {
     return this.request('/api/projects', {
       method: 'POST',
-      body: JSON.stringify({ name, data }),
+      body: JSON.stringify({ id, name, data }),
     });
   }
 
@@ -186,7 +186,8 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify({
         fatture: fatture.map((f) => ({
-          data: f,
+          id: f.id,
+          data: { encrypted: f.encrypted },
           project_id: projectId,
         })),
       }),

@@ -4,52 +4,48 @@ import { setSyncStatus, setSyncError } from './sync-status.svelte';
 async function syncCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
   if (!isLoggedIn()) throw new Error('Not logged in');
   setSyncStatus('syncing');
+  let error: unknown;
   try {
     return await fn();
   } catch (e) {
+    error = e;
     setSyncError(e instanceof Error ? e.message : String(e));
     throw e;
   } finally {
-    setSyncStatus('idle');
+    if (!error) setSyncStatus('idle');
   }
 }
 
 async function ensureEncrypt(): Promise<(data: string) => Promise<string>> {
   let key = getMasterKey();
   if (!key) {
-    const { reloadMasterKey } = await import('./auth.svelte');
-    const pw = (() => { try { return sessionStorage.getItem('fatturehub_session_password'); } catch { return null; } })();
-    if (pw) {
-      const ok = await reloadMasterKey(pw);
-      if (ok) key = getMasterKey();
-    }
-    if (!key) throw new Error('Chiave di cifratura non disponibile. Effettua il login.');
+    const { initMasterKey } = await import('./auth.svelte');
+    const ok = await initMasterKey();
+    if (ok) key = getMasterKey();
   }
+  if (!key) throw new Error('Chiave di cifratura non disponibile.');
   const { encryptWithKey } = await import('./crypto');
-  return (data: string) => encryptWithKey(key!, data);
+  return (data: string) => encryptWithKey(key, data);
 }
 
 async function ensureDecrypt(): Promise<(data: string) => Promise<string>> {
   let key = getMasterKey();
   if (!key) {
-    const { reloadMasterKey } = await import('./auth.svelte');
-    const pw = (() => { try { return sessionStorage.getItem('fatturehub_session_password'); } catch { return null; } })();
-    if (pw) {
-      const ok = await reloadMasterKey(pw);
-      if (ok) key = getMasterKey();
-    }
-    if (!key) throw new Error('Chiave di cifratura non disponibile. Effettua il login.');
+    const { initMasterKey } = await import('./auth.svelte');
+    const ok = await initMasterKey();
+    if (ok) key = getMasterKey();
   }
+  if (!key) throw new Error('Chiave di cifratura non disponibile.');
   const { decryptWithKey } = await import('./crypto');
-  return (data: string) => decryptWithKey(key!, data);
+  return (data: string) => decryptWithKey(key, data);
 }
 
-export async function syncCreateProject(name: string, data: any): Promise<any> {
+export async function syncCreateProject(name: string, data: any, projectId?: string): Promise<any> {
   return syncCall('Salvataggio progetto...', async () => {
     const enc = await ensureEncrypt();
     const encrypted = await enc(JSON.stringify(data));
     const api = getApi();
-    return await api.createProject(name, { encrypted });
+    return await api.createProject(name, { encrypted }, projectId);
   });
 }
 
@@ -65,9 +61,10 @@ export async function syncUpdateProject(id: string, name: string, data: any): Pr
 export async function syncUploadFatture(fatture: any[], projectId: string | undefined): Promise<any> {
   return syncCall('Salvataggio fatture...', async () => {
     const enc = await ensureEncrypt();
-    const encrypted = await enc(JSON.stringify(fatture));
     const api = getApi();
-    return await api.syncFatture([{ data: { encrypted }, project_id: projectId }]);
+    const encrypted = await Promise.all(fatture.map(f => enc(JSON.stringify(f))));
+    const items = fatture.map((f, i) => ({ id: f.id, encrypted: encrypted[i] }));
+    return await api.syncFatture(items, projectId);
   });
 }
 

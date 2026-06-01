@@ -2,6 +2,7 @@ import { api } from './client';
 
 let loggedIn = $state(api.isLoggedIn());
 let _masterKey = $state<string | null>(null);
+let _userId: string | null = null;
 
 function getSessionPassword(): string | null {
   try { return sessionStorage.getItem('fatturehub_session_password'); } catch { return null; }
@@ -21,9 +22,42 @@ export function getMasterKey(): string | null {
   return _masterKey;
 }
 
+async function persistMasterKey(key: string | null) {
+  if (!_userId) {
+    try {
+      const user = JSON.parse(localStorage.getItem('fatturehub_user') || '{}');
+      _userId = user?.id || null;
+    } catch { _userId = null; }
+  }
+  if (!_userId) return;
+  const { storeMasterKey, deleteMasterKeyFromStorage } = await import('./crypto');
+  if (key) await storeMasterKey(_userId, key);
+  else await deleteMasterKeyFromStorage(_userId);
+}
+
+async function loadMasterKey(): Promise<string | null> {
+  if (!_userId) {
+    try {
+      const user = JSON.parse(localStorage.getItem('fatturehub_user') || '{}');
+      _userId = user?.id || null;
+    } catch { _userId = null; }
+  }
+  if (!_userId) return null;
+  const { getMasterKeyFromStorage } = await import('./crypto');
+  return await getMasterKeyFromStorage(_userId);
+}
+
+export async function initMasterKey(): Promise<boolean> {
+  if (_masterKey) return true;
+  const key = await loadMasterKey();
+  if (key) { _masterKey = key; return true; }
+  return false;
+}
+
 export async function login(email: string, password: string) {
   const data = await api.login(email, password);
   setSessionPassword(password);
+  _userId = data.user?.id || null;
 
   const encKey = data.user?.encrypted_master_key;
   if (encKey) {
@@ -40,6 +74,7 @@ export async function login(email: string, password: string) {
     await api.updateEncryptedKey(wrapped);
   }
 
+  await persistMasterKey(_masterKey);
   loggedIn = true;
   return data;
 }
@@ -48,8 +83,10 @@ export async function reloadMasterKey(password: string): Promise<boolean> {
   try {
     const { unwrapMasterKey } = await import('./crypto');
     const me = await api.getMe();
+    _userId = me?.id || null;
     if (!me.encrypted_master_key) return false;
     _masterKey = await unwrapMasterKey(password, me.encrypted_master_key);
+    if (_masterKey) await persistMasterKey(_masterKey);
     return !!_masterKey;
   } catch {
     _masterKey = null;
@@ -70,6 +107,7 @@ export async function logout() {
   loggedIn = false;
   _masterKey = null;
   setSessionPassword(null);
+  await persistMasterKey(null);
 }
 
 export function getApi() {
