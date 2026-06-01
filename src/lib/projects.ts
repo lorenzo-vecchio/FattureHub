@@ -32,18 +32,7 @@ async function getDb(): Promise<Database> {
   return dbPromise;
 }
 
-function asNumber(value: unknown): number {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
+import { asNumber, asString } from './db-sqlite';
 
 function parseFilters(value: unknown): Filters {
   if (typeof value !== 'string' || value.length === 0) return emptyFilters();
@@ -134,8 +123,7 @@ export async function loadProject(id: string): Promise<Project | null> {
   }
 }
 
-export async function updateProject(id: string, name: string, fatture: Fattura[], filters: Filters): Promise<void> {
-  void fatture;
+export async function updateProject(id: string, name: string, _fatture: Fattura[], filters: Filters): Promise<void> {
   await ensureSchema();
   const db = await getDb();
   const now = Date.now();

@@ -175,7 +175,6 @@ function createAppStore() {
       for (const rp of remoteProjects) {
         const local = localMetas.find(m => m.id === rp.id);
         if (!local) {
-          const { loadProject } = await import('$lib/projects');
           const project = await loadProject(rp.id);
           if (project) {
             fatture = await getAllInvoices();
@@ -187,7 +186,6 @@ function createAppStore() {
         const remote = remoteProjects.find((r: any) => r.id === lp.id);
         if (!remote) {
           try {
-            const { loadProject } = await import('$lib/projects');
             const project = await loadProject(lp.id);
             if (project) {
               let invs: Fattura[] = [];
@@ -201,7 +199,6 @@ function createAppStore() {
       // auto-create a project for unassigned invoices
       const invoicesWithoutProject = await getAllInvoices(null);
       if (invoicesWithoutProject.length > 0 && localMetas.length === 0) {
-        const { saveProject } = await import('$lib/projects');
         const saved = await saveProject('Cloud', invoicesWithoutProject, filters);
         projectsList = await loadProjectsMeta();
         await syncToBackend(saved.id, saved.name, true, invoicesWithoutProject, filters);

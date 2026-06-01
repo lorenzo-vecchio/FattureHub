@@ -34,18 +34,7 @@ async function getDb(): Promise<Database> {
   return dbPromise;
 }
 
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asNumber(value: unknown): number {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
+import { asNumber, asString } from './db-sqlite';
 
 export async function saveReport(report: Report): Promise<void> {
   await ensureSchema();

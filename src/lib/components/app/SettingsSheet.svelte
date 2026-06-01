@@ -4,7 +4,7 @@
   import { Separator } from '$lib/components/ui/separator';
   import * as Sheet from '$lib/components/ui/sheet';
   import { getSetting, setSetting } from '$lib/db-sqlite';
-  import { Brain, Cloud, LogOut, Mail, Settings, User as UserIcon } from 'lucide-svelte';
+  import { Cloud, LogOut, Mail, Settings, User as UserIcon } from 'lucide-svelte';
   import { resetMode, setMode, userPrefersMode } from 'mode-watcher';
   import AiSettingsFields from './settings/AiSettingsFields.svelte';
   import SwitchRow from './settings/SwitchRow.svelte';

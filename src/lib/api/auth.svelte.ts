@@ -79,29 +79,6 @@ export async function login(email: string, password: string) {
   return data;
 }
 
-export async function reloadMasterKey(password: string): Promise<boolean> {
-  try {
-    const { unwrapMasterKey } = await import('./crypto');
-    const me = await api.getMe();
-    _userId = me?.id || null;
-    if (!me.encrypted_master_key) return false;
-    _masterKey = await unwrapMasterKey(password, me.encrypted_master_key);
-    if (_masterKey) await persistMasterKey(_masterKey);
-    return !!_masterKey;
-  } catch {
-    _masterKey = null;
-    return false;
-  }
-}
-
-export async function changePassword(oldPassword: string, newPassword: string) {
-  if (!_masterKey) throw new Error('Nessuna chiave di cifratura');
-  const { wrapMasterKey } = await import('./crypto');
-  const wrapped = await wrapMasterKey(newPassword, _masterKey);
-  await api.changePassword(oldPassword, newPassword, wrapped);
-  setSessionPassword(newPassword);
-}
-
 export async function logout() {
   await api.logout();
   loggedIn = false;

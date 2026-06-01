@@ -58,6 +58,7 @@ export async function syncUpdateProject(id: string, name: string, data: any): Pr
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function syncUploadFatture(fatture: any[], projectId: string | undefined): Promise<any> {
   return syncCall('Salvataggio fatture...', async () => {
     const enc = await ensureEncrypt();
@@ -65,36 +66,6 @@ export async function syncUploadFatture(fatture: any[], projectId: string | unde
     const encrypted = await Promise.all(fatture.map(f => enc(JSON.stringify(f))));
     const items = fatture.map((f, i) => ({ id: f.id, encrypted: encrypted[i] }));
     return await api.syncFatture(items, projectId);
-  });
-}
-
-export async function syncDownloadProjects(): Promise<any[]> {
-  return syncCall('Caricamento progetti...', async () => {
-    const dec = await ensureDecrypt();
-    const api = getApi();
-    const projects = await api.getProjects();
-    for (const p of projects) {
-      try {
-        const raw = p.data?.encrypted;
-        if (raw) p.data = JSON.parse(await dec(raw));
-      } catch { /* fallback to raw */ }
-    }
-    return projects;
-  });
-}
-
-export async function syncDownloadFatture(projectId?: string): Promise<any[]> {
-  return syncCall('Caricamento fatture...', async () => {
-    const dec = await ensureDecrypt();
-    const api = getApi();
-    const fatture = await api.getFatture(projectId);
-    for (const f of fatture) {
-      try {
-        const raw = f.data?.encrypted;
-        if (raw) f.data = JSON.parse(await dec(raw));
-      } catch { /* fallback to raw */ }
-    }
-    return fatture;
   });
 }
 

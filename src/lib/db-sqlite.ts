@@ -110,7 +110,7 @@ export async function ensureSchema(): Promise<void> {
   await schemaPromise
 }
 
-function asNumber(value: unknown): number {
+export function asNumber(value: unknown): number {
   if (typeof value === 'number') return value
   if (typeof value === 'string') {
     const n = Number(value)
@@ -119,7 +119,7 @@ function asNumber(value: unknown): number {
   return 0
 }
 
-function asString(value: unknown): string {
+export function asString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
@@ -242,28 +242,6 @@ async function insertInvoiceTx(
     `,
     params
   )
-}
-
-export async function saveInvoice(
-  fattura: Fattura,
-  compressedFilePath?: string,
-  projectId: string | null = null
-): Promise<string> {
-  await ensureSchema()
-  const db = await getDb()
-  const invoiceId = crypto.randomUUID()
-
-  await db.execute('BEGIN')
-  try {
-    await insertInvoiceTx(db, invoiceId, fattura, compressedFilePath, projectId)
-
-    await db.execute('COMMIT')
-  } catch (error) {
-    await db.execute('ROLLBACK')
-    throw error
-  }
-
-  return invoiceId
 }
 
 export async function saveInvoicesBatch(

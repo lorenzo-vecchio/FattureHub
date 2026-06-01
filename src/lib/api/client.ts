@@ -1,9 +1,5 @@
 const BACKEND_URL = 'http://localhost:8080';
 
-export interface ApiError {
-  error: string;
-}
-
 export class ApiClient {
   private baseUrl: string;
 
@@ -135,25 +131,6 @@ export class ApiClient {
     return this.request('/api/credits');
   }
 
-  async getPlans(): Promise<any> {
-    return this.request('/api/plans');
-  }
-
-  async createCheckout(planId?: string, topupId?: string): Promise<{ url: string }> {
-    return this.request('/api/stripe/create-checkout', {
-      method: 'POST',
-      body: JSON.stringify({ plan_id: planId, topup_id: topupId }),
-    });
-  }
-
-  async getSubscription(): Promise<any> {
-    return this.request('/api/stripe/subscription');
-  }
-
-  async getBillingPortal(): Promise<{ url: string }> {
-    return this.request('/api/stripe/portal');
-  }
-
   async getProjects(): Promise<any[]> {
     return this.request('/api/projects');
   }
@@ -194,12 +171,6 @@ export class ApiClient {
     });
   }
 
-  async chatWithAi(messages: any[], system?: string): Promise<any> {
-    return this.request('/api/ai/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages, system }),
-    });
-  }
 }
 
 export const api = new ApiClient();
