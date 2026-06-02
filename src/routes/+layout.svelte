@@ -20,22 +20,18 @@
 
   let { children } = $props();
 
-  let isHomeRoute = $derived(
-    $page.url.pathname === '/projects' || $page.url.pathname === '/reports'
-  );
-
   // Navigate to workspace when a project is opened from any route
   $effect(() => {
     const path = $page.url.pathname;
     const hasFatture = app.fatture.length > 0;
     const isIdle = !app.loading && !app.openingProject;
 
-    if (hasFatture && isIdle && (path === '/projects' || path === '/reports' || path === '/')) {
+    if (hasFatture && isIdle && (path.startsWith('/home') || path === '/')) {
       goto('/workspace');
     }
 
     if (!hasFatture && isIdle && path === '/workspace') {
-      goto('/projects');
+      goto('/home');
     }
   });
 
@@ -67,23 +63,6 @@
     <div class="mx-auto max-w-7xl px-6 py-6">
       {#if app.errors.length > 0}
         <ErrorsCard errors={app.errors} />
-      {/if}
-
-      {#if isHomeRoute}
-        <div class="mb-6 inline-flex items-center rounded-lg bg-muted p-1">
-          <a
-            href="/projects"
-            class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors {$page.url.pathname === '/projects' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}"
-          >
-            Progetti
-          </a>
-          <a
-            href="/reports"
-            class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors {$page.url.pathname === '/reports' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}"
-          >
-            Report
-          </a>
-        </div>
       {/if}
 
       {@render children()}
