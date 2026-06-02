@@ -26,7 +26,7 @@
   <div class="flex items-center justify-between border-b px-6 py-3 shrink-0">
     <div class="flex items-center gap-3">
       <button
-        onclick={() => goto('/')}
+        onclick={() => goto('/home/report')}
         class="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         title="Indietro"
       >
@@ -46,7 +46,7 @@
         <Download class="mr-1 h-3.5 w-3.5" />
         Scarica DOCX
       </Button>
-      <Button size="sm" class="h-8 text-xs" onclick={() => goto('/')}>
+      <Button size="sm" class="h-8 text-xs" onclick={() => goto('/home/report')}>
         <Sparkles class="mr-1 h-3.5 w-3.5" />
         Apri con AI
       </Button>
