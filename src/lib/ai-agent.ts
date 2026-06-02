@@ -412,12 +412,13 @@ Data: ${today} — Fatture: ${plainFatture.length}`;
 5. finish_report con table_ref — NON riprodurre le righe nel tool call
 
 == REGOLE IMPORTANTI ==
-- Le tue risposte testuali tra un tool e l'altro sono la conversazione con l'utente.
+- Non parlare tra un tool e l'altro. Lavora in silenzio.
+- Produci UN SOLO breve messaggio finale quando chiami finish_report.
+- Il messaggio finale deve essere 1-2 frasi, massimo 3. Sii conciso.
 - finish_report è SOLO per il report professionale: dati, numeri, tabelle.
-- finish_report NON deve contenere: emoji, saluti, domande, ringraziamenti, "Ciao!", "Buona giornata!", "Cosa vuoi fare?" o qualsiasi testo conversazionale.
-- I blocchi text in finish_report devono essere brevi, formali e descrittivi dei dati.
-- Le conversazioni con l'utente (spiegazioni, offerte di approfondimento, domande) vanno dette nei messaggi tra i tool call, NON in finish_report.
-- finish_report deve produrre un report che sembri scritto da un analista professionista.
+- finish_report NON deve contenere: emoji, saluti, domande, testi conversazionali.
+- I blocchi text in finish_report devono essere brevi titoli descrittivi.
+- finish_report deve produrre un report che sembri scritto da un analista.
 - Non chiedere "Cosa vuoi fare?" nel report. Il report è il prodotto finito.
 
 Rispondi in italiano.`;
@@ -903,8 +904,9 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       ...buildGenerateTextOptions(config, 'orchestrator'),
       abortSignal,
       onStepFinish: (step) => {
-        if (step.text?.trim()) {
-          conversationalText += (conversationalText ? '\n\n' : '') + step.text.trim();
+        const hasFinishReport = (step.toolCalls as Array<{ toolName: string }> | undefined)?.some(tc => tc.toolName === 'finish_report');
+        if (hasFinishReport && step.text?.trim()) {
+          conversationalText = step.text.trim();
         }
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
           if (tc.toolName !== 'finish_report') {
@@ -943,6 +945,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       for (const [, table] of workspace) {
         capturedBlocks.push({ type: 'table', title: table.title, columns: table.columns, rows: table.rows });
       }
+      if (!conversationalText) conversationalText = text.split('\n\n')[0];
     } else {
       throw new Error("L'AI non ha prodotto un report. Prova a riformulare il prompt.");
     }
