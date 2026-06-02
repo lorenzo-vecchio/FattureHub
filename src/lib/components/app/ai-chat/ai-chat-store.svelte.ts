@@ -91,6 +91,11 @@ function createChatStore() {
         abortSignal: controller.signal,
       });
 
+      // Preserve report ID when refining existing report
+      if (currentReport) {
+        report.id = currentReport.id;
+        report.createdAt = currentReport.createdAt;
+      }
       currentReport = report;
       conversationMessages = modelMessages;
 
