@@ -1,16 +1,8 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import FattureResults from '$lib/components/app/FattureResults.svelte';
   import FiltersPanel from '$lib/components/app/FiltersPanel.svelte';
   import LoadingCard from '$lib/components/app/LoadingCard.svelte';
   import { app } from '$lib/stores/app.svelte';
-
-  // Navigate back to landing when all invoices are cleared.
-  $effect(() => {
-    if (app.fatture.length === 0 && !app.loading && !app.openingProject) {
-      goto('/');
-    }
-  });
 </script>
 
 {#if app.loading || app.openingProject}

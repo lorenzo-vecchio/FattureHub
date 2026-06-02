@@ -15,6 +15,7 @@
   import SettingsSheet from '$lib/components/app/SettingsSheet.svelte';
   import UnsavedDialog from '$lib/components/app/UnsavedDialog.svelte';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { app } from '$lib/stores/app.svelte';
 
   let { children } = $props();
@@ -22,6 +23,21 @@
   let isHomeRoute = $derived(
     $page.url.pathname === '/projects' || $page.url.pathname === '/reports'
   );
+
+  // Navigate to workspace when a project is opened from any route
+  $effect(() => {
+    const path = $page.url.pathname;
+    const hasFatture = app.fatture.length > 0;
+    const isIdle = !app.loading && !app.openingProject;
+
+    if (hasFatture && isIdle && (path === '/projects' || path === '/reports' || path === '/')) {
+      goto('/workspace');
+    }
+
+    if (!hasFatture && isIdle && path === '/workspace') {
+      goto('/projects');
+    }
+  });
 
   onMount(() => app.init());
   onDestroy(() => app.destroy());

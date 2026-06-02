@@ -1,20 +1,7 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import LoadingCard from '$lib/components/app/LoadingCard.svelte';
   import UploadZone from '$lib/components/app/UploadZone.svelte';
   import { app } from '$lib/stores/app.svelte';
-
-  $effect(() => {
-    if (app.fatture.length > 0 && !app.loading && !app.openingProject) {
-      goto('/workspace');
-    }
-  });
-
-  $effect(() => {
-    if (app.projectsList.length > 0 && !app.loading && !app.openingProject) {
-      goto('/projects');
-    }
-  });
 </script>
 
 {#if app.openingProject}
