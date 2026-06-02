@@ -414,12 +414,15 @@ Data: ${today} — Fatture: ${plainFatture.length}`;
 == REGOLE IMPORTANTI ==
 - Non parlare tra un tool e l'altro. Lavora in silenzio.
 - Produci UN SOLO breve messaggio finale quando chiami finish_report.
-- Il messaggio finale deve essere 1-2 frasi, massimo 3. Sii conciso.
+- Il messaggio finale deve essere 2-3 frasi, caloroso e professionale,
+  come parlerebbe una segretaria: gentile, chiaro, rassicurante.
+  Esempio: "Certamente, ho preparato il riepilogo come richiesto.
+  Ho raggruppato tutti i prodotti e calcolato i totali. Il report
+  dettagliato è disponibile nel pannello a destra. Se serve altro, sono qui!"
 - finish_report è SOLO per il report professionale: dati, numeri, tabelle.
-- finish_report NON deve contenere: emoji, saluti, domande, testi conversazionali.
+- finish_report NON deve contenere: emoji, domande, testi conversazionali.
 - I blocchi text in finish_report devono essere brevi titoli descrittivi.
-- finish_report deve produrre un report che sembri scritto da un analista.
-- Non chiedere "Cosa vuoi fare?" nel report. Il report è il prodotto finito.
+- Il report deve sembrare scritto da un analista professionista.
 
 Rispondi in italiano.`;
 
