@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { version } from '../../../../package.json';
+  import { getVersion } from '@tauri-apps/api/app';
   import { defaultAiConfig, loadAiConfig, saveAiConfig, type AiConfig } from '$lib/ai-config';
   import { fetchAvailableModels, suggestDefaultModel, type AvailableModel } from '$lib/ai-models';
   import { Separator } from '$lib/components/ui/separator';
@@ -28,6 +28,7 @@
   let lastModelFetchKey = '';
   let keepFilesAfterImport = $state(false);
 
+  let appVersion = $state('');
   let accountInfo = $state<{ email: string; name: string } | null>(null);
   let creditInfo = $state<{ balance: number; monthly_allowance: number; subscription_status: string } | null>(null);
   let accountLoading = $state(false);
@@ -69,6 +70,7 @@
       });
 
       loadAccountData();
+      getVersion().then((v) => { appVersion = v; });
     }
   });
 
@@ -286,7 +288,7 @@
       </div>
     </div>
     <div class="px-6 pb-3 pt-1">
-      <p class="text-[10px] text-muted-foreground/50 text-center">v{version}</p>
+      <p class="text-[10px] text-muted-foreground/50 text-center">v{appVersion}</p>
     </div>
   </Sheet.Content>
 </Sheet.Root>
