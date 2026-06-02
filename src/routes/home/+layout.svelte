@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import LoadingCard from '$lib/components/app/LoadingCard.svelte';
   import { app } from '$lib/stores/app.svelte';
 
   let { children } = $props();
@@ -17,8 +18,13 @@
     </div>
   </div>
 {:else if app.loading}
-  <!-- loading handled by root page -->
-  {@render children()}
+  <LoadingCard
+    parsingDone={app.loadingProgress.parsingDone}
+    parsingTotal={app.loadingProgress.parsingTotal}
+    savingDone={app.loadingProgress.savingDone}
+    savingTotal={app.loadingProgress.savingTotal}
+    stage={app.loadingProgress.stage}
+  />
 {:else}
   {#if isHomeRoute}
     <div class="mb-6 inline-flex items-center rounded-lg bg-muted p-1">
