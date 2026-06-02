@@ -19,16 +19,16 @@
   } = $props();
 </script>
 
-<div class="space-y-2">
+<div class="flex flex-col items-center gap-2">
   <textarea
-    class="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+    class="w-full max-w-lg min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
     placeholder="Es: Riepilogo prodotti per fornitore con quantità totali..."
     value={prompt}
     disabled={running}
     rows={3}
     oninput={(e) => updatePrompt((e.target as HTMLTextAreaElement).value)}
   ></textarea>
-  <Button class="w-full" disabled={running || !prompt.trim()} onclick={generate}>
+  <Button class="w-full max-w-sm" disabled={running || !prompt.trim()} onclick={generate}>
     {#if running}
       <Loader class="mr-2 h-4 w-4 animate-spin" />
       Elaborazione...

@@ -8,7 +8,7 @@
   import { exportReportToDocx } from '$lib/export-docx';
   import type { Fattura } from '$lib/parser';
   import type { ModelMessage } from 'ai';
-  import { Sparkles } from 'lucide-svelte';
+  import { Maximize2, Minimize2, Sparkles, X } from 'lucide-svelte';
   import ReportView from './ReportView.svelte';
   import AiProgressLog from './ai-sheet/AiProgressLog.svelte';
   import AiPromptComposer from './ai-sheet/AiPromptComposer.svelte';
@@ -41,6 +41,7 @@
   let savedReports = $state<Report[]>([]);
   let viewingReport = $state<Report | null>(null);
   let errorMsg = $state<string | null>(null);
+  let expanded = $state(false);
 
   let conversationMessages = $state<ModelMessage[]>([]);
   let refinementPrompt = $state('');
@@ -167,14 +168,36 @@
 </script>
 
 <Sheet.Root open={open} onOpenChange={handleOpenChange}>
-  <Sheet.Content side="right" class="flex w-[520px] flex-col gap-0 p-0 sm:max-w-[520px]">
+  <Sheet.Content side="right" showCloseButton={false} class="flex w-[520px] flex-col gap-0 p-0 sm:max-w-[520px] {expanded ? 'ai-sheet-expanded' : ''}">
 
     <!-- Fixed header -->
     <Sheet.Header class="shrink-0 border-b px-6 py-4">
-      <Sheet.Title class="flex items-center gap-2">
-        <Sparkles class="h-4 w-4" />
-        Assistente AI
-      </Sheet.Title>
+      <div class="flex items-center justify-between">
+        <Sheet.Title class="flex items-center gap-2">
+          <Sparkles class="h-4 w-4" />
+          Assistente AI
+        </Sheet.Title>
+        <div class="flex items-center gap-1">
+          <button
+            onclick={() => (expanded = !expanded)}
+            class="rounded-md p-1.5 hover:bg-accent transition-colors"
+            title={expanded ? 'Riduci' : 'Espandi'}
+          >
+            {#if expanded}
+              <Minimize2 class="h-4 w-4" />
+            {:else}
+              <Maximize2 class="h-4 w-4" />
+            {/if}
+          </button>
+          <button
+            onclick={() => (open = false)}
+            class="rounded-md p-1.5 hover:bg-accent transition-colors"
+            title="Chiudi"
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </Sheet.Header>
 
     {#if !projectId || fatture.length === 0}
@@ -266,3 +289,11 @@
   close={() => (viewingReport = null)}
   exportDocx={() => exportReportToDocx(viewingReport!)}
 />
+
+<style>
+  :global(.ai-sheet-expanded) {
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+  }
+</style>
