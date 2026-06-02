@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { version } from '../../../../package.json';
   import { defaultAiConfig, loadAiConfig, saveAiConfig, type AiConfig } from '$lib/ai-config';
   import { fetchAvailableModels, suggestDefaultModel, type AvailableModel } from '$lib/ai-models';
   import { Separator } from '$lib/components/ui/separator';
@@ -283,6 +284,9 @@
           {/if}
         {/if}
       </div>
+    </div>
+    <div class="px-6 pb-3 pt-1">
+      <p class="text-[10px] text-muted-foreground/50 text-center">v{version}</p>
     </div>
   </Sheet.Content>
 </Sheet.Root>
