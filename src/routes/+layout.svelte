@@ -14,9 +14,14 @@
   import SaveProjectDialog from '$lib/components/app/SaveProjectDialog.svelte';
   import SettingsSheet from '$lib/components/app/SettingsSheet.svelte';
   import UnsavedDialog from '$lib/components/app/UnsavedDialog.svelte';
+  import { page } from '$app/stores';
   import { app } from '$lib/stores/app.svelte';
 
   let { children } = $props();
+
+  let isHomeRoute = $derived(
+    $page.url.pathname === '/projects' || $page.url.pathname === '/reports'
+  );
 
   onMount(() => app.init());
   onDestroy(() => app.destroy());
@@ -46,6 +51,23 @@
     <div class="mx-auto max-w-7xl px-6 py-6">
       {#if app.errors.length > 0}
         <ErrorsCard errors={app.errors} />
+      {/if}
+
+      {#if isHomeRoute}
+        <div class="mb-6 inline-flex items-center rounded-lg bg-muted p-1">
+          <a
+            href="/projects"
+            class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors {$page.url.pathname === '/projects' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}"
+          >
+            Progetti
+          </a>
+          <a
+            href="/reports"
+            class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors {$page.url.pathname === '/reports' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}"
+          >
+            Report
+          </a>
+        </div>
       {/if}
 
       {@render children()}
