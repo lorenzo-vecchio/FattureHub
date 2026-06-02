@@ -2,6 +2,9 @@
   import type { ChatMessage } from './ai-chat-store.svelte';
   import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '$lib/components/ui/accordion';
   import { ChevronRight, Loader, Sparkles, AlertCircle } from 'lucide-svelte';
+  import { marked } from 'marked';
+
+  marked.setOptions({ breaks: true, gfm: true });
 
   let {
     message,
@@ -76,15 +79,14 @@
         </div>
       {/if}
 
-      {#if message.report}
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-xs text-muted-foreground">
-            Report generato con {message.report.blocks.length} blocchi.
-          </p>
-        </div>
-      {:else if message.content && !message.error}
-        <div class="rounded-2xl rounded-tl-md bg-muted px-4 py-2.5 text-sm">
-          {message.content}
+      {#if message.content && !message.error}
+        <div class="prose prose-sm dark:prose-invert max-w-none rounded-2xl rounded-tl-md bg-muted px-4 py-2.5 text-sm
+          [&_p]:leading-relaxed [&_p]:my-1
+          [&_ul]:my-1 [&_ul]:pl-4 [&_li]:my-0.5
+          [&_ol]:my-1 [&_ol]:pl-4
+          [&_strong]:font-semibold
+          [&_hr]:my-2">
+          {@html marked.parse(message.content)}
         </div>
       {/if}
 

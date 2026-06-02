@@ -94,10 +94,16 @@ function createChatStore() {
       currentReport = report;
       conversationMessages = modelMessages;
 
+      const textParts = report.blocks
+        .filter(b => b.type === 'text')
+        .map(b => b.content)
+        .join('\n\n')
+        .trim();
+
+      const conversationalContent = textParts || 'Report generato.';
+
       updateLastAssistant({
-        content: report.blocks.length > 0
-          ? `Report generato con ${report.blocks.length} blocchi.`
-          : 'Report generato.',
+        content: conversationalContent,
         report,
         isProcessing: false,
       });
