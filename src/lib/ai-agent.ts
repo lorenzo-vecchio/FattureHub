@@ -358,7 +358,7 @@ export async function runAiAgent(opts: {
   onProgress: (msg: string) => void;
   conversationMessages?: ModelMessage[];
   abortSignal?: AbortSignal;
-}): Promise<{ report: Report; messages: ModelMessage[] }> {
+}): Promise<{ report: Report; messages: ModelMessage[]; conversationalText: string }> {
   const { prompt, fatture, config, projectId, onProgress, conversationMessages, abortSignal } = opts;
 
   const orchestratorModel = buildModel(config, 'orchestrator');
@@ -380,6 +380,9 @@ export async function runAiAgent(opts: {
 
   // ── Captured report blocks ────────────────────────────────────────────────
   let capturedBlocks: ReportBlock[] | null = null;
+
+  // ── Conversational text (shown in chat) ──────────────────────────────────
+  let conversationalText = '';
 
   // ── Plan ──────────────────────────────────────────────────────────────────
   let plan = '';
@@ -900,6 +903,9 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       ...buildGenerateTextOptions(config, 'orchestrator'),
       abortSignal,
       onStepFinish: (step) => {
+        if (step.text?.trim()) {
+          conversationalText += (conversationalText ? '\n\n' : '') + step.text.trim();
+        }
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
           if (tc.toolName !== 'finish_report') {
             onProgress(friendlyToolName(tc.toolName));
@@ -950,5 +956,5 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
     blocks: capturedBlocks as ReportBlock[],
   };
 
-  return { report, messages: sanitizeModelMessages(messages) };
+  return { report, messages: sanitizeModelMessages(messages), conversationalText };
 }

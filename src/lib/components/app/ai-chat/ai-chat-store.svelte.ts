@@ -78,7 +78,7 @@ function createChatStore() {
     abortController = controller;
 
     try {
-      const { report, messages: modelMessages } = await runAiAgent({
+      const { report, messages: modelMessages, conversationalText } = await runAiAgent({
         prompt: prompt.trim(),
         fatture,
         config,
@@ -94,16 +94,8 @@ function createChatStore() {
       currentReport = report;
       conversationMessages = modelMessages;
 
-      const textParts = report.blocks
-        .filter(b => b.type === 'text')
-        .map(b => b.content)
-        .join('\n\n')
-        .trim();
-
-      const conversationalContent = textParts || 'Report generato.';
-
       updateLastAssistant({
-        content: conversationalContent,
+        content: conversationalText || 'Report generato.',
         report,
         isProcessing: false,
       });
