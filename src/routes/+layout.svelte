@@ -7,7 +7,7 @@
   import AppHeader from '$lib/components/app/AppHeader.svelte';
   import { TooltipProvider } from '$lib/components/ui/tooltip';
   import AiRunningDialog from '$lib/components/app/AiRunningDialog.svelte';
-  import AiSheet from '$lib/components/app/AiSheet.svelte';
+  import AiChatShell from '$lib/components/app/ai-chat/AiChatShell.svelte';
   import ErrorsCard from '$lib/components/app/ErrorsCard.svelte';
   import ImportDialog from '$lib/components/app/ImportDialog.svelte';
   import ProjectsSheet from '$lib/components/app/ProjectsSheet.svelte';
@@ -59,7 +59,7 @@
   bind:open={app.settingsOpen}
   onAiConfigChange={(cfg) => { app.aiConfigWritable = cfg; }}
 />
-<AiSheet
+<AiChatShell
   bind:open={app.aiOpen}
   fatture={app.fatture}
   config={app.aiConfig}

@@ -311,6 +311,25 @@ async function compressContext(
   }
 }
 
+// ── Friendly progress labels ──────────────────────────────────────────────────
+
+const toolLabels: Record<string, string> = {
+  create_plan: 'Pianificazione analisi...',
+  aggregate_products: 'Aggregazione prodotti in corso...',
+  group_similar_products: 'Raggruppamento prodotti simili...',
+  workspace_from_aggregate: 'Preparazione tabella risultati...',
+  workspace_add_rows: 'Aggiunta righe alla tabella...',
+  workspace_compute: 'Calcolo statistiche...',
+  list_fatture: 'Ricerca fatture...',
+  get_all_line_items: 'Lettura righe fattura...',
+  get_fattura_details: 'Acquisizione dettagli fattura...',
+  finish_report: 'Generazione report finale...',
+};
+
+function friendlyToolName(name: string): string {
+  return toolLabels[name] || `Strumento: ${name}`;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type AggregateProduct = {
@@ -402,7 +421,7 @@ Rispondi in italiano.`;
       }),
       execute: async ({ planText }: { planText: string }) => {
         plan = planText;
-        onProgress(`create_plan → piano registrato`);
+        onProgress(`Piano di analisi registrato.`);
         return { ok: true, message: 'Piano registrato. Procedi con aggregate_products.' };
       },
     },
@@ -479,7 +498,7 @@ Rispondi in italiano.`;
         lastAggregateResult = results;
 
         const withWeight = results.filter(r => r.pesoTotale != null).length;
-        onProgress(`aggregate_products → ${results.length} prodotti unici (${withWeight} con peso estratto)`);
+        onProgress(`Trovati ${results.length} prodotti unici (${withWeight} con peso estratto).`);
 
         return {
           totalProducts: results.length,
@@ -612,7 +631,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
         const nextStartIndex = args.startIndex + batch.length;
         const done = nextStartIndex >= lastAggregateResult.length;
 
-        onProgress(`group_similar_products → batch ${args.startIndex}-${nextStartIndex - 1}: ${parsed.length} gruppi (tabella: ${table.rows.length} righe)`);
+        onProgress(`Raggruppati ${parsed.length} prodotti (lotto ${args.startIndex + 1}-${nextStartIndex}) — ${table.rows.length} righe nella tabella.`);
 
         return {
           processedInBatch: batch.length,
@@ -693,7 +712,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
         }
 
         workspace.set(args.tableId, { title: args.title, columns, rows });
-        onProgress(`workspace_from_aggregate → tabella "${args.tableId}": ${rows.length} righe`);
+        onProgress(`Tabella "${args.tableId}" creata con ${rows.length} righe.`);
         return {
           tableId: args.tableId,
           totalRows: rows.length,
@@ -724,7 +743,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
         }
         const table = workspace.get(args.tableId)!;
         table.rows.push(...args.rows);
-        onProgress(`workspace_add_rows → "${args.tableId}": ${table.rows.length} righe totali`);
+        onProgress(`Aggiunte ${args.rows.length} righe alla tabella "${args.tableId}" (${table.rows.length} totali).`);
         return { tableId: args.tableId, totalRows: table.rows.length, added: args.rows.length };
       },
     },
@@ -754,7 +773,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
         else if (args.operation === 'avg') result = values.reduce((a, b) => a + b, 0) / values.length;
         else if (args.operation === 'min') result = Math.min(...values);
         else result = Math.max(...values);
-        onProgress(`workspace_compute → ${args.operation}(${args.columnKey}) = ${Math.round(result * 1000) / 1000}`);
+        onProgress(`Calcolata statistica: ${args.operation} = ${Math.round(result * 1000) / 1000}.`);
         return { tableId: args.tableId, columnKey: args.columnKey, operation: args.operation, result: Math.round(result * 1000) / 1000 };
       },
     },
@@ -778,7 +797,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
         const total = list.length;
         const truncated = list.length > 100;
         if (truncated) list = list.slice(0, 100);
-        onProgress(`list_fatture → ${total} risultati${truncated ? ' (prime 100)' : ''}`);
+        onProgress(`Trovate ${total} fatture${truncated ? ' (mostrate le prime 100).' : '.'}`);
         return { total, shown: list.length, truncated, items: list };
       },
     },
@@ -807,7 +826,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
         const total = items.length;
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
         const pageItems = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-        onProgress(`get_all_line_items → ${total} righe (pag. ${page}/${totalPages})`);
+        onProgress(`Lette ${total} righe prodotto (pagina ${page} di ${totalPages}).`);
         return { total, page, totalPages, pageSize: PAGE_SIZE, items: pageItems };
       },
     },
@@ -820,7 +839,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       execute: async ({ fileName }: { fileName: string }) => {
         const f = plainFatture.find(x => x.fileName === fileName);
         if (!f) return { error: `Fattura non trovata: ${fileName}` };
-        onProgress(`get_fattura_details → ${fileName}`);
+        onProgress(`Acquisiti dettagli fattura: ${fileName}.`);
         return fatturaToDetails(f);
       },
     },
@@ -846,7 +865,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
           return b as ReportBlock;
         });
         capturedBlocks = resolved;
-        onProgress(`Report prodotto (${resolved.length} blocchi)`);
+        onProgress(`Report generato con ${resolved.length} sezioni.`);
         return 'Report completato con successo.';
       },
     },
@@ -874,7 +893,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       onStepFinish: (step) => {
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
           if (tc.toolName !== 'finish_report') {
-            onProgress(`Strumento: ${tc.toolName}`);
+            onProgress(friendlyToolName(tc.toolName));
           }
         }
       },
@@ -886,11 +905,11 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
 
     // Context compression
     if (contextWindow > 0 && estimateTokens(messages) > contextWindow * 0.75) {
-      onProgress('Compressione contesto in corso...');
+      onProgress('Comprimo il contesto per ottimizzare la memoria...');
       const summary = await compressContext(messages, plan, config, abortSignal);
       plan = plan ? `${plan}\n\n[Fase ${phase + 1}]\n${summary}` : summary;
       messages = [{ role: 'user', content: originalPrompt }];
-      onProgress('Contesto compresso, riprendo analisi...');
+      onProgress('Contesto ottimizzato, proseguo con l\'analisi...');
     }
   }
 

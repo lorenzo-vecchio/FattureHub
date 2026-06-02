@@ -86,6 +86,65 @@ export async function loadReports(projectId: string): Promise<Report[]> {
   }
 }
 
+export async function loadReportById(id: string): Promise<Report | null> {
+  try {
+    await ensureSchema();
+    const db = await getDb();
+    const rows = (await db.select<DbRow[]>(
+      'SELECT id, project_id, created_at, prompt, blocks_json FROM reports WHERE id = $1',
+      [id]
+    )) as DbRow[];
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    let blocks: ReportBlock[] = [];
+    try {
+      const parsed = JSON.parse(asString(row.blocks_json)) as ReportBlock[];
+      blocks = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      blocks = [];
+    }
+    return {
+      id: asString(row.id),
+      projectId: asString(row.project_id),
+      createdAt: asNumber(row.created_at),
+      prompt: asString(row.prompt),
+      blocks,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function loadAllReports(): Promise<Report[]> {
+  try {
+    await ensureSchema();
+    const db = await getDb();
+    const rows = (await db.select<DbRow[]>(
+      'SELECT id, project_id, created_at, prompt, blocks_json FROM reports ORDER BY created_at DESC'
+    )) as DbRow[];
+
+    return rows.map((row) => {
+      let blocks: ReportBlock[] = [];
+      try {
+        const parsed = JSON.parse(asString(row.blocks_json)) as ReportBlock[];
+        blocks = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        blocks = [];
+      }
+
+      return {
+        id: asString(row.id),
+        projectId: asString(row.project_id),
+        createdAt: asNumber(row.created_at),
+        prompt: asString(row.prompt),
+        blocks,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function deleteReport(projectId: string, reportId: string): Promise<void> {
   await ensureSchema();
   const db = await getDb();
