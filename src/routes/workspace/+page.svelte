@@ -23,7 +23,7 @@
   />
 
 {:else}
-  <div class="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
+  <div class="grid grid-cols-1 gap-6 md:grid-cols-[300px_1fr]">
     <FiltersPanel
       filters={app.filters}
       fatture={app.fatture}
