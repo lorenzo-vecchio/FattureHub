@@ -324,6 +324,7 @@ const toolLabels: Record<string, string> = {
   get_all_line_items: 'Lettura righe fattura...',
   get_fattura_details: 'Acquisizione dettagli fattura...',
   finish_report: 'Generazione report finale...',
+  chat_response: 'Risposta all\'utente...',
 };
 
 function friendlyToolName(name: string): string {
@@ -384,6 +385,8 @@ export async function runAiAgent(opts: {
   // ── Conversational text (shown in chat) ──────────────────────────────────
   let conversationalText = '';
 
+  let chatResponseCaptured = false;
+
   // ── Plan ──────────────────────────────────────────────────────────────────
   let plan = '';
 
@@ -412,17 +415,18 @@ Data: ${today} — Fatture: ${plainFatture.length}`;
 5. finish_report con table_ref — NON riprodurre le righe nel tool call
 
 == REGOLE IMPORTANTI ==
-- Non parlare tra un tool e l'altro. Lavora in silenzio.
-- Produci UN SOLO breve messaggio finale quando chiami finish_report.
-- Il messaggio finale deve essere 2-3 frasi, caloroso e professionale,
-  come parlerebbe una segretaria: gentile, chiaro, rassicurante.
+- Non parlare tra i tool call. Lavora in silenzio.
+- Alla fine, chiama SEMPRE due tool in sequenza: prima chat_response,
+  poi finish_report (o viceversa, nello stesso step).
+- chat_response: messaggio breve (2-3 frasi) per l'utente nella chat.
+  Deve essere caloroso e professionale, come una segretaria.
+  Non ripetere dati già presenti nel report.
   Esempio: "Certamente, ho preparato il riepilogo come richiesto.
-  Ho raggruppato tutti i prodotti e calcolato i totali. Il report
-  dettagliato è disponibile nel pannello a destra. Se serve altro, sono qui!"
-- finish_report è SOLO per il report professionale: dati, numeri, tabelle.
-- finish_report NON deve contenere: emoji, domande, testi conversazionali.
-- I blocchi text in finish_report devono essere brevi titoli descrittivi.
-- Il report deve sembrare scritto da un analista professionista.
+  Tutti i dati sono organizzati nel report qui a destra. Se serve
+  altro, sono a disposizione!"
+- finish_report: SOLO il report professionale: titoli, dati, tabelle.
+  Niente conversazione, niente emoji, niente saluti, niente domande.
+  Deve sembrare scritto da un analista professionista.
 
 Rispondi in italiano.`;
 
@@ -860,6 +864,18 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       },
     },
 
+    chat_response: {
+      description: 'Invia un messaggio di risposta all\'utente nella chat. Chiamalo insieme a finish_report per dare un riscontro conversazionale. Deve essere breve (2-3 frasi max) e NON deve ripetere informazioni già presenti nel report.',
+      inputSchema: z.object({
+        message: z.string().describe('Il messaggio per l\'utente. Breve, caloroso, professionale. Non ripetere dati del report.'),
+      }),
+      execute: async ({ message }: { message: string }) => {
+        conversationalText = message;
+        chatResponseCaptured = true;
+        return { ok: true };
+      },
+    },
+
     finish_report: {
       description: 'Consegna il report finale professionale. Solo dati, nessuna conversazione. Nessuna emoji, nessuna domanda, nessun saluto. Usa "table_ref" per referenziare tabelle workspace — NON riprodurre i dati.',
       inputSchema: z.object({
@@ -907,11 +923,8 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       ...buildGenerateTextOptions(config, 'orchestrator'),
       abortSignal,
       onStepFinish: (step) => {
-        if (step.text?.trim()) {
-          conversationalText = step.text.trim();
-        }
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
-          if (tc.toolName !== 'finish_report') {
+          if (tc.toolName !== 'finish_report' && tc.toolName !== 'chat_response') {
             onProgress(friendlyToolName(tc.toolName));
           }
         }
