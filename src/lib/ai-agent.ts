@@ -408,6 +408,15 @@ Data: ${today} — Fatture: ${plainFatture.length}`;
 4. workspace_compute — statistiche opzionali
 5. finish_report con table_ref — NON riprodurre le righe nel tool call
 
+== REGOLE IMPORTANTI ==
+- Le tue risposte testuali tra un tool e l'altro sono la conversazione con l'utente.
+- finish_report è SOLO per il report professionale: dati, numeri, tabelle.
+- finish_report NON deve contenere: emoji, saluti, domande, ringraziamenti, "Ciao!", "Buona giornata!", "Cosa vuoi fare?" o qualsiasi testo conversazionale.
+- I blocchi text in finish_report devono essere brevi, formali e descrittivi dei dati.
+- Le conversazioni con l'utente (spiegazioni, offerte di approfondimento, domande) vanno dette nei messaggi tra i tool call, NON in finish_report.
+- finish_report deve produrre un report che sembri scritto da un analista professionista.
+- Non chiedere "Cosa vuoi fare?" nel report. Il report è il prodotto finito.
+
 Rispondi in italiano.`;
 
     return sys;
@@ -845,7 +854,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
     },
 
     finish_report: {
-      description: 'Consegna il report finale. Usa "table_ref" per referenziare tabelle workspace — NON riprodurre i dati.',
+      description: 'Consegna il report finale professionale. Solo dati, nessuna conversazione. Nessuna emoji, nessuna domanda, nessun saluto. Usa "table_ref" per referenziare tabelle workspace — NON riprodurre i dati.',
       inputSchema: z.object({
         blocks: reportBlocksSchema,
       }),
