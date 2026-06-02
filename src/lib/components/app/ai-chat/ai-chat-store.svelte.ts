@@ -91,16 +91,24 @@ function createChatStore() {
         abortSignal: controller.signal,
       });
 
+      const isRefinement = currentReport !== null;
+
       // Preserve report ID when refining existing report
-      if (currentReport) {
-        report.id = currentReport.id;
-        report.createdAt = currentReport.createdAt;
+      if (isRefinement) {
+        report.id = currentReport!.id;
+        report.createdAt = currentReport!.createdAt;
       }
       currentReport = report;
       conversationMessages = modelMessages;
 
+      const friendlyMessage = conversationalText || (
+        isRefinement
+          ? 'Ho aggiornato il report come richiesto! Ho rivisto i dati e sistemato tutto. Dai un\'occhiata al pannello a destra per vedere le modifiche.'
+          : 'Ecco il report che hai richiesto! Ho analizzato tutti i dati e preparato un riepilogo dettagliato con tutte le informazioni. Lo trovi nel pannello a destra.'
+      );
+
       updateLastAssistant({
-        content: conversationalText || 'Report generato.',
+        content: friendlyMessage,
         report,
         isProcessing: false,
       });

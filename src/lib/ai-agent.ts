@@ -907,8 +907,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       ...buildGenerateTextOptions(config, 'orchestrator'),
       abortSignal,
       onStepFinish: (step) => {
-        const hasFinishReport = (step.toolCalls as Array<{ toolName: string }> | undefined)?.some(tc => tc.toolName === 'finish_report');
-        if (hasFinishReport && step.text?.trim()) {
+        if (step.text?.trim()) {
           conversationalText = step.text.trim();
         }
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
