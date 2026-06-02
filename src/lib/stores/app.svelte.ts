@@ -447,8 +447,11 @@ function createAppStore() {
   }
 
   async function handleOpenProjectFromList(projectMeta: ProjectMeta) {
+    openingProject = true;
     const project = await loadProject(projectMeta.id);
     if (project) await handleOpenProjectRequest(project);
+    // If dialog was shown (isDirty), hide spinner; doOpenProject will re-show it on confirm
+    if (unsavedOpen) openingProject = false;
   }
 
   async function handleDeleteProject(id: string) {
