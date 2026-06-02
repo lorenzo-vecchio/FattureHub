@@ -38,7 +38,7 @@
     {/if}
   </Button>
   {#if running || refining}
-    <Button variant="destructive" class="w-full" onclick={stop}>
+    <Button variant="destructive" class="w-full max-w-sm" onclick={stop}>
       <Square class="mr-2 h-4 w-4 fill-current" />
       Interrompi elaborazione
     </Button>
