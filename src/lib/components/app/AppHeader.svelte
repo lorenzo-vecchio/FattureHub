@@ -14,7 +14,6 @@
     onclear,
     onopenprojects,
     opensettings,
-    openai,
   }: {
     fattureCount: number;
     activeFilters: number;
@@ -25,7 +24,6 @@
     onclear: () => void;
     onopenprojects: () => void;
     opensettings: () => void;
-    openai: () => void;
   } = $props();
 </script>
 
@@ -51,7 +49,6 @@
       {fattureCount}
       {aiEnabled}
       {isAiRunning}
-      openAi={openai}
       openProjects={onopenprojects}
       openSettings={opensettings}
       clearProject={onclear}

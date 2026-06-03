@@ -8,7 +8,6 @@
     fattureCount,
     aiEnabled,
     isAiRunning,
-    openAi,
     openProjects,
     openSettings,
     clearProject,
@@ -16,7 +15,6 @@
     fattureCount: number;
     aiEnabled: boolean;
     isAiRunning: boolean;
-    openAi: () => void;
     openProjects: () => void;
     openSettings: () => void;
     clearProject: () => void;
@@ -45,7 +43,11 @@
     <Button
       variant={isAiRunning ? 'secondary' : 'ghost'}
       size="sm"
-      onclick={openAi}
+      onclick={() => {
+        const isOnAiPage = window.location.pathname === '/ai';
+        if (isOnAiPage) return;
+        goto('/ai');
+      }}
       title="Assistente AI"
     >
       {#if isAiRunning}

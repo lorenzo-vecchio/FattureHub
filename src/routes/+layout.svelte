@@ -7,7 +7,6 @@
   import AppHeader from '$lib/components/app/AppHeader.svelte';
   import { TooltipProvider } from '$lib/components/ui/tooltip';
   import AiRunningDialog from '$lib/components/app/AiRunningDialog.svelte';
-  import AiChatShell from '$lib/components/app/ai-chat/AiChatShell.svelte';
   import ErrorsCard from '$lib/components/app/ErrorsCard.svelte';
   import ImportDialog from '$lib/components/app/ImportDialog.svelte';
   import ProjectsSheet from '$lib/components/app/ProjectsSheet.svelte';
@@ -20,9 +19,12 @@
 
   let { children } = $props();
 
+  let isAiRoute = $derived($page.url.pathname.startsWith('/ai'));
+
   // Navigate to workspace when a project is opened from any route
   $effect(() => {
     const path = $page.url.pathname;
+    if (path.startsWith('/ai')) return;
     const hasFatture = app.fatture.length > 0;
     const isIdle = !app.loading && !app.openingProject;
 
@@ -46,7 +48,7 @@
 <ModeWatcher />
 
 <TooltipProvider>
-  <div class="min-h-screen bg-muted/40">
+  <div class="flex h-screen flex-col bg-muted/40">
     <AppHeader
       fattureCount={app.fatture.length}
       activeFilters={app.activeFilters}
@@ -57,16 +59,21 @@
       onclear={app.handleClearClick}
       onopenprojects={() => (app.projectsOpen = true)}
       opensettings={() => (app.settingsOpen = true)}
-      openai={() => (app.aiOpen = true)}
     />
 
-    <div class="mx-auto max-w-7xl px-6 py-6">
-      {#if app.errors.length > 0}
-        <ErrorsCard errors={app.errors} />
-      {/if}
+    {#if isAiRoute}
+      <div class="flex-1 min-h-0">
+        {@render children()}
+      </div>
+    {:else}
+      <div class="mx-auto w-full max-w-7xl flex-1 overflow-y-auto px-6 py-6">
+        {#if app.errors.length > 0}
+          <ErrorsCard errors={app.errors} />
+        {/if}
 
-      {@render children()}
-    </div>
+        {@render children()}
+      </div>
+    {/if}
   </div>
 </TooltipProvider>
 
@@ -75,13 +82,6 @@
 <SettingsSheet
   bind:open={app.settingsOpen}
   onAiConfigChange={(cfg) => { app.aiConfigWritable = cfg; }}
-/>
-<AiChatShell
-  bind:open={app.aiOpen}
-  fatture={app.fatture}
-  config={app.aiConfig}
-  projectId={app.currentProject?.id ?? null}
-  onrunningChange={(v) => { app.isAiRunningWritable = v; }}
 />
 
 <!-- Global dialogs -->
