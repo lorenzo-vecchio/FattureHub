@@ -17,7 +17,6 @@
     currentReport,
     contextProjects,
     config,
-    fattureCount,
     onsend,
     onstop,
     onInputChange,
@@ -33,7 +32,6 @@
     currentReport: Report | null;
     contextProjects: ProjectMeta[];
     config: AiConfig;
-    fattureCount: number;
     onsend: () => void;
     onstop: () => void;
     onInputChange: (v: string) => void;
@@ -86,36 +84,28 @@
     </div>
   </div>
 
-  {#if fattureCount === 0}
-    <div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <p class="text-sm text-muted-foreground">
-        Carica delle fatture per usare l'AI.
-      </p>
-    </div>
-  {:else}
-    <div class="flex-1 min-h-0">
-      <ResizablePaneGroup direction="horizontal">
-        <ResizablePane minSize={30} defaultSize={currentReport ? 40 : 100}>
-          <AiChatSidebar
-            {messages}
-            {inputValue}
-            {isProcessing}
-            {contextProjects}
-            {onaddcontext}
-            {onremovecontext}
-            onsend={onsend}
-            onstop={onstop}
-            onInputChange={onInputChange}
-          />
-        </ResizablePane>
+  <div class="flex-1 min-h-0">
+    <ResizablePaneGroup direction="horizontal">
+      <ResizablePane minSize={30} defaultSize={currentReport ? 40 : 100}>
+        <AiChatSidebar
+          {messages}
+          {inputValue}
+          {isProcessing}
+          {contextProjects}
+          {onaddcontext}
+          {onremovecontext}
+          onsend={onsend}
+          onstop={onstop}
+          onInputChange={onInputChange}
+        />
+      </ResizablePane>
 
-        {#if currentReport}
-          <ResizableHandle withHandle/>
-          <ResizablePane minSize={30} defaultSize={60}>
-            <AiReportPanel report={currentReport} />
-          </ResizablePane>
-        {/if}
-      </ResizablePaneGroup>
-    </div>
-  {/if}
+      {#if currentReport}
+        <ResizableHandle withHandle/>
+        <ResizablePane minSize={30} defaultSize={60}>
+          <AiReportPanel report={currentReport} />
+        </ResizablePane>
+      {/if}
+    </ResizablePaneGroup>
+  </div>
 </div>

@@ -122,7 +122,7 @@
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onsend();
+      if (contextProjects.length > 0) onsend();
     }
   }
 
@@ -183,7 +183,7 @@
         bind:this={textareaEl}
         value={value}
         disabled={isProcessing}
-        placeholder="Scrivi una richiesta per l'Assistente AI... (usa @ per menzionare un progetto)"
+        placeholder={contextProjects.length === 0 ? app.projectsList.length === 0 ? "Nessun progetto disponibile. Creane uno dalla home." : "Aggiungi un progetto con @ per iniziare" : "Scrivi una richiesta per l'Assistente AI... (usa @ per menzionare un progetto)"}
         rows={1}
         class="min-h-[40px] flex-1 resize-none overflow-y-hidden rounded-xl border bg-muted/50 px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         oninput={handleInput}
@@ -195,13 +195,21 @@
           <Square class="h-4 w-4 fill-current" />
         </Button>
       {:else}
-        <Button size="icon" class="h-10 w-10 shrink-0 rounded-xl" disabled={!value.trim()} onclick={onsend} title="Invia">
+        <Button size="icon" class="h-10 w-10 shrink-0 rounded-xl" disabled={!value.trim() || contextProjects.length === 0} onclick={onsend} title={contextProjects.length === 0 ? (app.projectsList.length === 0 ? 'Nessun progetto disponibile' : 'Aggiungi un progetto al contesto') : 'Invia'}>
           <Send class="h-4 w-4" />
         </Button>
       {/if}
     </div>
     <p class="mt-1 text-center text-[10px] text-muted-foreground">
-      Premi Invio per inviare &middot; Maiusc+Invio per andare a capo &middot; @ per menzionare un progetto
+      {#if contextProjects.length === 0}
+        {#if app.projectsList.length === 0}
+          Crea un progetto dalla home per usare l'AI
+        {:else}
+          Aggiungi un progetto al contesto con <kbd class="rounded border bg-muted px-1 font-mono">@</kbd> o dal pulsante <strong>+ Progetto</strong>
+        {/if}
+      {:else}
+        Premi Invio per inviare &middot; Maiusc+Invio per andare a capo &middot; @ per menzionare un progetto
+      {/if}
     </p>
   </div>
 </div>

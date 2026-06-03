@@ -39,7 +39,7 @@
     </Button>
   {/if}
 
-  {#if aiEnabled && fattureCount > 0}
+  {#if aiEnabled}
     <Button
       variant={isAiRunning ? 'secondary' : 'ghost'}
       size="sm"

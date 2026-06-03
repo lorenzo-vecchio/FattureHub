@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { app } from '$lib/stores/app.svelte';
   import { chatStore } from '$lib/components/app/ai-chat/ai-chat-store.svelte';
+  import type { ProjectMeta } from '$lib/projects';
   import AiChatShell from '$lib/components/app/ai-chat/AiChatShell.svelte';
 
   onMount(() => {
@@ -27,14 +28,13 @@
     currentReport={chatStore.currentReport}
     contextProjects={chatStore.contextProjects}
     config={app.aiConfig}
-    fattureCount={app.fatture.length}
-    onsend={() => chatStore.sendMessage(chatStore.inputValue, app.aiConfig, (v) => (app.isAiRunningWritable = v))}
+    onsend={() => chatStore.sendMessage(chatStore.inputValue, app.aiConfig, (v: boolean) => (app.isAiRunningWritable = v))}
     onstop={() => { chatStore.stopProcessing(); app.isAiRunningWritable = false; }}
-    onInputChange={(v) => (chatStore.inputValue = v)}
+    onInputChange={(v: string) => (chatStore.inputValue = v)}
     onclear={() => chatStore.clearChat()}
     onsave={() => chatStore.saveCurrentReport()}
     onclose={handleClose}
-    onaddcontext={(p) => chatStore.addContextProject(p)}
-    onremovecontext={(id) => chatStore.removeContextProject(id)}
+    onaddcontext={(p: ProjectMeta) => chatStore.addContextProject(p)}
+    onremovecontext={(id: string) => chatStore.removeContextProject(id)}
   />
 </div>

@@ -30,7 +30,7 @@
 
 <div class="flex h-full flex-col bg-background">
   <div class="flex-1 min-h-0 overflow-hidden">
-    <AiChatMessages {messages} />
+    <AiChatMessages {messages} {contextProjects} />
   </div>
 
   <AiChatContextBar
