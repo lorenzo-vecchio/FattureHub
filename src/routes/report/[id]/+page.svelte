@@ -22,8 +22,8 @@
   });
 </script>
 
-<div class="flex flex-col h-full -mt-6 -mx-6">
-  <div class="flex items-center justify-between border-b px-6 py-3 shrink-0 sticky top-0 z-10 bg-background">
+<div class="flex flex-col h-full">
+  <div class="flex items-center justify-between border-b px-6 py-3 shrink-0 z-10 bg-background -mx-6" style="width: calc(100% + 3rem); margin-top: -1.5rem;">
     <div class="flex items-center gap-3">
       <button
         onclick={() => goto('/home/report')}
