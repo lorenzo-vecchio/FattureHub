@@ -1,3 +1,5 @@
+use tauri::{Emitter, Manager};
+
 #[tauri::command]
 fn force_exit() {
   std::process::exit(0);
@@ -66,6 +68,18 @@ pub fn run() {
             .build(),
         )?;
       }
+      // Gestione chiusura finestra lato Rust per evitare bug di onCloseRequested
+      // sul frontend con Tauri v2.
+      if let Some(window) = app.get_webview_window("main") {
+        let w = window.clone();
+        window.on_window_event(move |event| {
+          if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            let _ = w.emit("close-requested", ());
+          }
+        });
+      }
+
       Ok(())
     })
     .run(tauri::generate_context!())

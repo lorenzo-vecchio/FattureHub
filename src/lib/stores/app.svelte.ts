@@ -30,6 +30,7 @@ import {
 } from '$lib/projects';
 import JSZip from 'jszip';
 import { tick } from 'svelte';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 
 type LoadingProgress = {
   parsingDone: number;
@@ -163,6 +164,7 @@ function createAppStore() {
   async function init() {
     await initializeDatabase();
     fatture = await getAllInvoices();
+    syncSavedState();
     aiConfig = await loadAiConfig();
 
     loadingProjects = true;
@@ -170,10 +172,13 @@ function createAppStore() {
     loadingProjects = false;
 
     try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      unlistenClose = await getCurrentWindow().onCloseRequested((event) => {
-        if (!isDirty && !isAiRunning) return;
-        event.preventDefault();
+      const { listen } = await import('@tauri-apps/api/event');
+      const { invoke } = await import('@tauri-apps/api/core');
+      unlistenClose = listen('close-requested', () => {
+        if (!isDirty && !isAiRunning) {
+          invoke('force_exit');
+          return;
+        }
         pendingAction = { type: 'close' };
         if (isAiRunning) aiRunningOpen = true;
         else unsavedOpen = true;
@@ -452,8 +457,8 @@ function createAppStore() {
     const action = pendingAction;
     pendingAction = null;
     if (action.type === 'close') {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('force_exit');
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().destroy();
     } else if (action.type === 'clear') {
       void doClearAll();
     } else if (action.type === 'open') {
