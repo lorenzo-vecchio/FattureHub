@@ -5,8 +5,6 @@
  * Call `app.init()` from the root layout's onMount and `app.destroy()` from onDestroy.
  */
 
-import { setSyncStatus, setSyncError } from '$lib/api/sync-status.svelte';
-import { syncCreateProject, syncUpdateProject, syncUploadFatture, syncDeleteProject as syncDelProject } from '$lib/api/sync.svelte';
 import { defaultAiConfig, loadAiConfig, type AiConfig } from '$lib/ai-config';
 import {
     clearAllInvoices,
@@ -161,65 +159,11 @@ function createAppStore() {
 
   // ── Tauri lifecycle ───────────────────────────────────────────────────────
   let unlistenClose: (() => void) | undefined;
-  let _syncTimer: ReturnType<typeof setInterval> | undefined;
-
-  async function backgroundSync() {
-    if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
-    if (loading) return;
-    setSyncStatus('syncing');
-    try {
-      const { getApi } = await import('$lib/api/auth.svelte');
-      const remoteProjects: any[] = await getApi().getProjects();
-      const localMetas = await loadProjectsMeta();
-
-      for (const rp of remoteProjects) {
-        const local = localMetas.find(m => m.id === rp.id);
-        if (!local) {
-          const project = await loadProject(rp.id);
-          if (project) {
-            fatture = await getAllInvoices();
-          }
-        }
-      }
-
-      for (const lp of localMetas) {
-        const remote = remoteProjects.find((r: any) => r.id === lp.id);
-        if (!remote) {
-          try {
-            const project = await loadProject(lp.id);
-            if (project) {
-              let invs: Fattura[] = [];
-              try { invs = await getAllInvoices(lp.id); } catch {}
-              await syncToBackend(lp.id, lp.name, true, invs, project.filters);
-            }
-          } catch (e) { console.error('background sync error:', e); }
-        }
-      }
-
-      // auto-create a project for unassigned invoices
-      const invoicesWithoutProject = await getAllInvoices(null);
-      if (invoicesWithoutProject.length > 0 && localMetas.length === 0) {
-        const saved = await saveProject('Cloud', invoicesWithoutProject, filters);
-        projectsList = await loadProjectsMeta();
-        await syncToBackend(saved.id, saved.name, true, invoicesWithoutProject, filters);
-      }
-
-      if (!isDirty && !loading) {
-        projectsList = await loadProjectsMeta();
-      }
-      setSyncStatus('idle');
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : String(e));
-    }
-  }
 
   async function init() {
     await initializeDatabase();
     fatture = await getAllInvoices();
     aiConfig = await loadAiConfig();
-
-    const { initMasterKey } = await import('$lib/api/auth.svelte');
-    await initMasterKey();
 
     loadingProjects = true;
     projectsList = await loadProjectsMeta();
@@ -237,15 +181,11 @@ function createAppStore() {
     } catch {
       // Not running inside Tauri (e.g. browser dev mode) — ignore.
     }
-
-    backgroundSync();
-    _syncTimer = setInterval(backgroundSync, 60000);
   }
 
   function destroy() {
     unlistenClose?.();
     cleanupEffects();
-    if (_syncTimer) clearInterval(_syncTimer);
   }
 
   // ── File import ───────────────────────────────────────────────────────────
@@ -381,7 +321,6 @@ function createAppStore() {
     await updateProject(currentProject.id, currentProject.name, fatture, filters);
     syncSavedState();
     isDirty = false;
-    syncToBackend(currentProject.id, currentProject.name, false, fatture, filters);
   }
 
   async function handleSaveNewProject(name: string): Promise<void> {
@@ -390,31 +329,6 @@ function createAppStore() {
     syncSavedState();
     isDirty = false;
     projectsList = await loadProjectsMeta();
-    syncToBackend(saved.id, saved.name, true, fatture, filters);
-  }
-
-  async function syncToBackend(projectId: string, projectName: string, isNew: boolean, fattureData: Fattura[], filtersData: Filters) {
-    if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
-    const projectData = { filters: filtersData };
-    if (isNew) {
-      await syncCreateProject(projectName, projectData, projectId);
-    } else {
-      try {
-        await syncUpdateProject(projectId, projectName, projectData);
-      } catch {
-        await syncCreateProject(projectName, projectData, projectId);
-      }
-    }
-    if (fattureData.length > 0) {
-      await syncUploadFatture(fattureData, projectId);
-    }
-  }
-
-  async function syncDeleteToBackend(id: string) {
-    if (typeof localStorage === 'undefined' || !localStorage.getItem('fatturehub_access_token')) return;
-    try {
-      await syncDelProject(id);
-    } catch {}
   }
 
   // ── Project opening ───────────────────────────────────────────────────────
@@ -456,7 +370,6 @@ function createAppStore() {
 
   async function handleDeleteProject(id: string) {
     await deleteProject(id);
-    syncDeleteToBackend(id);
     projectsList = await loadProjectsMeta();
     if (currentProject?.id === id) {
       currentProject = null;

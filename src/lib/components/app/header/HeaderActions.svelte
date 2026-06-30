@@ -1,8 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { isLoggedIn, logout } from '$lib/api/auth.svelte';
   import { Button } from '$lib/components/ui/button';
-  import { FolderArchive, Loader, LogIn, LogOut, Settings, Sparkles, X } from 'lucide-svelte';
+  import { FolderArchive, Loader, Settings, Sparkles, X } from 'lucide-svelte';
 
   let {
     fattureCount,
@@ -19,26 +18,9 @@
     openSettings: () => void;
     clearProject: () => void;
   } = $props();
-
-  async function handleLogout() {
-    await logout();
-    goto('/');
-  }
 </script>
 
 <div class="flex items-center gap-2">
-  {#if isLoggedIn()}
-    <Button variant="ghost" size="sm" onclick={handleLogout} title="Disconnetti">
-      <LogOut class="mr-1.5 h-3.5 w-3.5" />
-      Esci
-    </Button>
-  {:else}
-    <Button variant="ghost" size="sm" onclick={() => goto('/login')} title="Accedi">
-      <LogIn class="mr-1.5 h-3.5 w-3.5" />
-      Accedi
-    </Button>
-  {/if}
-
   {#if aiEnabled}
     <Button
       variant={isAiRunning ? 'secondary' : 'ghost'}

@@ -2,7 +2,6 @@
   import { Badge } from '$lib/components/ui/badge';
   import HeaderActions from './header/HeaderActions.svelte';
   import HeaderProjectStatus from './header/HeaderProjectStatus.svelte';
-  import SyncIndicator from './header/SyncIndicator.svelte';
 
   let {
     fattureCount,
@@ -31,7 +30,6 @@
   <div class="mx-auto max-w-7xl flex h-14 items-center justify-between px-6">
     <div class="flex items-center gap-3">
       <h1 class="text-base font-semibold">FattureHub</h1>
-      <SyncIndicator />
 
       {#if fattureCount > 0}
         <Badge variant="secondary">{fattureCount} caricate</Badge>

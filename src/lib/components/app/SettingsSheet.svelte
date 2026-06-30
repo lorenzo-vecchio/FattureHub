@@ -5,13 +5,11 @@
   import { Separator } from '$lib/components/ui/separator';
   import * as Sheet from '$lib/components/ui/sheet';
   import { getSetting, setSetting } from '$lib/db-sqlite';
-  import { Cloud, LogOut, Mail, Settings, User as UserIcon } from 'lucide-svelte';
+  import { Settings } from 'lucide-svelte';
   import { resetMode, setMode, userPrefersMode } from 'mode-watcher';
   import AiSettingsFields from './settings/AiSettingsFields.svelte';
   import SwitchRow from './settings/SwitchRow.svelte';
   import ThemeSelector from './settings/ThemeSelector.svelte';
-  import { isLoggedIn, logout, getApi } from '$lib/api/auth.svelte';
-  import { open as openExternal } from '@tauri-apps/plugin-shell';
 
   let {
     open = $bindable(false),
@@ -29,39 +27,14 @@
   let keepFilesAfterImport = $state(false);
 
   let appVersion = $state('');
-  let accountInfo = $state<{ email: string; name: string } | null>(null);
-  let creditInfo = $state<{ balance: number; monthly_allowance: number; subscription_status: string } | null>(null);
-  let accountLoading = $state(false);
 
   function handleOpenChange(v: boolean) {
     open = v;
   }
 
-  async function loadAccountData() {
-    if (!isLoggedIn()) return;
-    accountLoading = true;
-    try {
-      const api = getApi();
-      const [me, credits] = await Promise.all([
-        api.getMe(),
-        api.getCredits(),
-      ]);
-      accountInfo = { email: me.email, name: me.name };
-      creditInfo = credits;
-    } catch {
-      accountInfo = null;
-      creditInfo = null;
-    } finally {
-      accountLoading = false;
-    }
-  }
-
   $effect(() => {
     if (open) {
       loadAiConfig().then((cfg) => {
-        if (isLoggedIn() && !cfg.useBackendAI && !cfg.apiKey) {
-          cfg = { ...cfg, useBackendAI: true, enabled: true };
-        }
         aiConfig = cfg;
       });
 
@@ -69,14 +42,13 @@
         keepFilesAfterImport = value === 'true';
       });
 
-      loadAccountData();
       getVersion().then((v) => { appVersion = v; });
     }
   });
 
   $effect(() => {
     if (!open) return;
-    if (aiConfig.useBackendAI) {
+    if (!aiConfig.enabled) {
       availableModels = [];
       modelError = null;
       modelLoading = false;
@@ -139,12 +111,6 @@
     if (value === 'system') resetMode();
     else setMode(value);
   }
-
-  async function handleLogout() {
-    await logout();
-    accountInfo = null;
-    creditInfo = null;
-  }
 </script>
 
 <Sheet.Root open={open} onOpenChange={handleOpenChange}>
@@ -159,64 +125,7 @@
     <div class="px-6 py-5 space-y-6 overflow-y-auto">
       <ThemeSelector currentTheme={userPrefersMode.current} {selectTheme} />
 
-      {#if isLoggedIn()}
-        <Separator />
-
-        <!-- Account Info -->
-        <div class="space-y-3">
-          <h3 class="text-sm font-semibold">Account</h3>
-          {#if accountLoading}
-            <p class="text-sm text-muted-foreground">Caricamento...</p>
-          {:else if accountInfo}
-            <div class="space-y-2 rounded-lg border p-3">
-              <div class="flex items-center gap-2 text-sm">
-                <UserIcon class="size-4 text-muted-foreground" />
-                <span>{accountInfo.name || accountInfo.email}</span>
-              </div>
-              <div class="flex items-center gap-2 text-sm">
-                <Mail class="size-4 text-muted-foreground" />
-                <span class="text-muted-foreground">{accountInfo.email}</span>
-              </div>
-              {#if creditInfo}
-                <Separator />
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-muted-foreground">Crediti AI</span>
-                  <span class="font-bold">{creditInfo.balance}</span>
-                </div>
-                {#if creditInfo.subscription_status === 'active'}
-                  <div class="flex items-center justify-between text-sm">
-                    <span class="text-muted-foreground">Crediti/mese</span>
-                    <span>+{creditInfo.monthly_allowance}</span>
-                  </div>
-                  <div class="flex items-center justify-between text-sm">
-                    <span class="text-muted-foreground">Stato</span>
-                    <span class="text-green-600">Attivo</span>
-                  </div>
-                {:else}
-                  <p class="text-xs text-muted-foreground">Nessun abbonamento attivo</p>
-                {/if}
-              {/if}
-            </div>
-
-            <button
-              onclick={() => openExternal('http://localhost:5174/settings')}
-              class="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Gestisci abbonamento
-            </button>
-
-            <button
-              onclick={handleLogout}
-              class="flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <LogOut class="size-4" />
-              Esci
-            </button>
-          {/if}
-        </div>
-
-        <Separator />
-      {/if}
+      <Separator />
 
       <SwitchRow
         title="Archivia file importati"
@@ -246,44 +155,37 @@
         />
 
         {#if aiConfig.enabled}
-          {#if isLoggedIn()}
-            <SwitchRow
-              title="AI inclusa nell'abbonamento"
-              description="Usa l'AI del backend (consuma crediti)"
-              checked={aiConfig.useBackendAI}
-              label="Usa AI inclusa nell'abbonamento"
-              toggle={async () => {
-                aiConfig = { ...aiConfig, useBackendAI: !aiConfig.useBackendAI };
-                await saveAiConfig(aiConfig);
-              }}
-            />
-          {/if}
+          <SwitchRow
+            title="Curiosità sul fisco italiano"
+            description="Mostra curiosità su leggi, fisco e burocrazia italiana durante le analisi lunghe"
+            checked={aiConfig.showCuriosities}
+            label="Mostra curiosità"
+            toggle={async () => {
+              aiConfig = { ...aiConfig, showCuriosities: !aiConfig.showCuriosities };
+              await saveAiConfig(aiConfig);
+              onAiConfigChange?.(aiConfig);
+            }}
+          />
 
-          {#if aiConfig.useBackendAI && isLoggedIn()}
-            <div class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
-              <Cloud class="mb-1 size-4" />
-              <p>Stai usando l'AI inclusa nell'abbonamento. I crediti vengono scalati automaticamente.</p>
-              <p class="mt-1 text-xs">Saldo: <strong>{creditInfo?.balance ?? 0}</strong> crediti</p>
-            </div>
-          {:else}
-            <AiSettingsFields
-              {aiConfig}
-              {availableModels}
-              {modelLoading}
-              {modelError}
-              {saved}
-              setProvider={(provider) => { aiConfig = { ...aiConfig, provider }; }}
-              updateEndpoint={(value) => { aiConfig = { ...aiConfig, endpoint: value }; }}
-              updateApiKey={(value) => { aiConfig = { ...aiConfig, apiKey: value }; }}
-              updateModel={(value) => { aiConfig = { ...aiConfig, model: value }; }}
-              updateOrchestratorModel={(value) => { aiConfig = { ...aiConfig, orchestratorModel: value }; }}
-              updateOrchestratorReasoning={(value) => { aiConfig = { ...aiConfig, orchestratorReasoning: value }; }}
-              updateTaskModel={(value) => { aiConfig = { ...aiConfig, taskModel: value }; }}
-              updateTaskReasoning={(value) => { aiConfig = { ...aiConfig, taskReasoning: value }; }}
-              updateContextWindow={(value) => { aiConfig = { ...aiConfig, contextWindow: parseInt(value) || 0 }; }}
-              saveConfig={handleAiSave}
-            />
-          {/if}
+          <Separator />
+
+          <AiSettingsFields
+            {aiConfig}
+            {availableModels}
+            {modelLoading}
+            {modelError}
+            {saved}
+            setProvider={(provider) => { aiConfig = { ...aiConfig, provider }; }}
+            updateEndpoint={(value) => { aiConfig = { ...aiConfig, endpoint: value }; }}
+            updateApiKey={(value) => { aiConfig = { ...aiConfig, apiKey: value }; }}
+            updateModel={(value) => { aiConfig = { ...aiConfig, model: value }; }}
+            updateOrchestratorModel={(value) => { aiConfig = { ...aiConfig, orchestratorModel: value }; }}
+            updateOrchestratorReasoning={(value) => { aiConfig = { ...aiConfig, orchestratorReasoning: value }; }}
+            updateTaskModel={(value) => { aiConfig = { ...aiConfig, taskModel: value }; }}
+            updateTaskReasoning={(value) => { aiConfig = { ...aiConfig, taskReasoning: value }; }}
+            updateContextWindow={(value) => { aiConfig = { ...aiConfig, contextWindow: parseInt(value) || 0 }; }}
+            saveConfig={handleAiSave}
+          />
         {/if}
       </div>
     </div>

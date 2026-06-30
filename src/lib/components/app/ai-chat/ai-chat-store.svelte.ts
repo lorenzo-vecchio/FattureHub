@@ -1,4 +1,5 @@
 import { runAiAgent } from '$lib/ai-agent';
+import { generateAcknowledgment } from '$lib/ai-acknowledgment';
 import type { AiConfig } from '$lib/ai-config';
 import { saveReport, type Report } from '$lib/ai-reports';
 import type { Fattura } from '$lib/parser';
@@ -109,6 +110,14 @@ function createChatStore() {
 
     const projectId = contextProjects.length > 0 ? contextProjects[0].id : 'default';
 
+    // Generate and show acknowledgment before starting the analysis
+    try {
+      const ack = await generateAcknowledgment(prompt.trim(), config, contextInfo, controller.signal);
+      updateLastAssistant({ content: ack });
+    } catch {
+      // If acknowledgment fails, just proceed without it
+    }
+
     try {
       const { report, messages: modelMessages, conversationalText } = await runAiAgent({
         prompt: contextInfo + prompt.trim(),
@@ -123,17 +132,19 @@ function createChatStore() {
         abortSignal: controller.signal,
       });
 
-      // Preserve report ID when refining existing report
-      if (currentReport) {
-        report.id = currentReport.id;
-        report.createdAt = currentReport.createdAt;
+      if (report) {
+        // Preserve report ID when refining existing report
+        if (currentReport) {
+          report.id = currentReport.id;
+          report.createdAt = currentReport.createdAt;
+        }
+        currentReport = report;
       }
-      currentReport = report;
       conversationMessages = modelMessages;
 
       updateLastAssistant({
-        content: conversationalText || 'Report generato.',
-        report,
+        content: conversationalText || (report ? 'Report generato.' : ''),
+        report: report ?? undefined,
         isProcessing: false,
       });
     } catch (e) {
@@ -161,6 +172,10 @@ function createChatStore() {
     await saveReport(currentReport);
   }
 
+  function setCurrentReport(report: Report | null) {
+    currentReport = report;
+  }
+
   return {
     get messages() { return messages; },
     get isProcessing() { return isProcessing; },
@@ -176,6 +191,7 @@ function createChatStore() {
     stopProcessing,
     clearChat,
     saveCurrentReport,
+    setCurrentReport,
   };
 }
 

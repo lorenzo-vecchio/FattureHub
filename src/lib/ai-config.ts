@@ -2,7 +2,6 @@ import { getSetting, setSetting } from './db-sqlite';
 
 export interface AiConfig {
   enabled: boolean;
-  useBackendAI: boolean;
   provider: 'openai' | 'anthropic';
   endpoint: string;
   apiKey: string;
@@ -12,11 +11,11 @@ export interface AiConfig {
   taskModel: string;
   taskReasoning?: boolean;
   contextWindow: number;
+  showCuriosities: boolean;
 }
 
 export const defaultAiConfig: AiConfig = {
   enabled: false,
-  useBackendAI: false,
   provider: 'openai',
   endpoint: '',
   apiKey: '',
@@ -24,6 +23,7 @@ export const defaultAiConfig: AiConfig = {
   orchestratorModel: '',
   taskModel: '',
   contextWindow: 0,
+  showCuriosities: true,
 };
 
 export async function loadAiConfig(): Promise<AiConfig> {

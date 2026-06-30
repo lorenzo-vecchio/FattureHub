@@ -5,6 +5,7 @@ import { generateText, hasToolCall, stepCountIs } from 'ai';
 import { z } from 'zod';
 import type { AiConfig } from './ai-config';
 import { tauriFetch } from './ai-fetch';
+import { buildSystemPrompt } from './prompts/loader';
 import type { Report, ReportBlock, TableBlock } from './ai-reports';
 import type { Fattura } from './parser';
 
@@ -121,73 +122,8 @@ function wrapFetchForDeepSeek(baseFetch: typeof fetch): typeof fetch {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('fatturehub_access_token');
-}
-
-function getRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('fatturehub_refresh_token');
-}
-
-async function fetchWithBackendAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const headers = new Headers(init?.headers);
-
-  let token = getAccessToken();
-  if (!token) {
-    token = await tryRefreshToken();
-    if (!token) throw new Error('Not authenticated');
-  }
-
-  headers.set('Authorization', `Bearer ${token}`);
-  let res = await tauriFetch(input, { ...init, headers });
-
-  if (res.status === 401) {
-    const newToken = await tryRefreshToken();
-    if (newToken) {
-      headers.set('Authorization', `Bearer ${newToken}`);
-      res = await tauriFetch(input, { ...init, headers });
-    }
-  }
-
-  return res;
-}
-
-async function tryRefreshToken(): Promise<string | null> {
-  const refresh = getRefreshToken();
-  if (!refresh) return null;
-  try {
-    const res = await tauriFetch('http://localhost:8080/api/auth/refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refresh }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    localStorage.setItem('fatturehub_access_token', data.access_token);
-    localStorage.setItem('fatturehub_refresh_token', data.refresh_token);
-    return data.access_token;
-  } catch {
-    return null;
-  }
-}
-
 function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestrator'): any {
   const modelName = resolveModelName(config, role);
-
-  if (config.useBackendAI) {
-    const backendUrl = 'http://localhost:8080/v1';
-    const token = getAccessToken();
-    const provider = createOpenAI({
-      baseURL: backendUrl,
-      apiKey: token || 'backend',
-      fetch: fetchWithBackendAuth as typeof fetch,
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (provider as any).chat(modelName);
-  }
 
   if (config.provider === 'anthropic') {
     const provider = createAnthropic({
@@ -293,6 +229,7 @@ function estimateTokens(messages: ModelMessage[]): number {
 async function compressContext(
   messages: ModelMessage[],
   plan: string,
+  workspaceState: string,
   config: AiConfig,
   abortSignal?: AbortSignal,
 ): Promise<string> {
@@ -300,8 +237,8 @@ async function compressContext(
   try {
     const result = await generateText({
       model: compressModel,
-      system: 'Sei un assistente che riassume sessioni di analisi. Produci un riassunto conciso in italiano di ciò che è stato fatto e dei risultati ottenuti.',
-      prompt: `Riassumi questa sessione di lavoro in 200 parole massimo:\n\nPIANO: ${plan || 'nessuno'}\n\nMESSAGGI:\n${JSON.stringify(messages.slice(-20))}`,
+      system: 'Sei un assistente che riassume sessioni di analisi. Produci un riassunto conciso in italiano di ciò che è stato fatto e dei risultati ottenuti. I DATI ANALIZZATI vengono preservati separatamente — non includerli nel riassunto.',
+      prompt: `Riassumi SOLO la conversazione (non i dati) in 200 parole max:\n\nPIANO: ${plan || 'nessuno'}\n\nDATI ANALIZZATI (preservati):\n${workspaceState}\n\nMESSAGGI:\n${JSON.stringify(messages.slice(-20))}`,
       ...buildGenerateTextOptions(config, 'orchestrator'),
       abortSignal,
     });
@@ -359,7 +296,7 @@ export async function runAiAgent(opts: {
   onProgress: (msg: string) => void;
   conversationMessages?: ModelMessage[];
   abortSignal?: AbortSignal;
-}): Promise<{ report: Report; messages: ModelMessage[]; conversationalText: string }> {
+}): Promise<{ report: Report | null; messages: ModelMessage[]; conversationalText: string }> {
   const { prompt, fatture, config, projectId, onProgress, conversationMessages, abortSignal } = opts;
 
   const orchestratorModel = buildModel(config, 'orchestrator');
@@ -386,6 +323,8 @@ export async function runAiAgent(opts: {
   let conversationalText = '';
 
   let chatResponseCaptured = false;
+  // Viene impostato a true quando un tool di analisi viene chiamato
+  let analysisStarted = false;
 
   // ── Plan ──────────────────────────────────────────────────────────────────
   let plan = '';
@@ -397,40 +336,25 @@ export async function runAiAgent(opts: {
       .join('\n');
   }
 
-  function buildSystemPrompt(): string {
-    let sys = `Sei un orchestratore che analizza fatture elettroniche italiane.
-Data: ${today} — Fatture: ${plainFatture.length}`;
+  function buildWorkspaceSnapshot(): string {
+    if (workspace.size === 0) return '(vuoto)';
+    return Array.from(workspace.entries())
+      .map(([id, t]) => {
+        const sample = t.rows.slice(0, 5).map(r =>
+          Object.entries(r).map(([k, v]) => `${k}: ${v}`).join(', ')
+        ).join('\n      ');
+        return `• "${id}" — ${t.title} (${t.rows.length} righe)\n  Colonne: ${t.columns.map(c => c.label).join(', ')}\n  Anteprima:\n      ${sample || '(vuota)'}`;
+      })
+      .join('\n');
+  }
 
-    if (plan) {
-      sys += `\n\n== PIANO CORRENTE ==\n${plan}`;
-    }
-
-    sys += `\n\n== STATO WORKSPACE ==\n${buildWorkspaceState()}`;
-
-    sys += `\n\n== WORKFLOW CONSIGLIATO ==
-1. create_plan — registra il piano prima di iniziare
-2. aggregate_products — aggrega tutti i prodotti con estrazione automatica del peso
-3. group_similar_products — raggruppa prodotti simili in batch (loop finché done=true)
-4. workspace_compute — statistiche opzionali
-5. finish_report con table_ref — NON riprodurre le righe nel tool call
-
-== REGOLE IMPORTANTI ==
-- Non parlare tra i tool call. Lavora in silenzio.
-- Alla fine, chiama SEMPRE due tool in sequenza: prima chat_response,
-  poi finish_report (o viceversa, nello stesso step).
-- chat_response: messaggio breve (2-3 frasi) per l'utente nella chat.
-  Deve essere caloroso e professionale, come una segretaria.
-  Non ripetere dati già presenti nel report.
-  Esempio: "Certamente, ho preparato il riepilogo come richiesto.
-  Tutti i dati sono organizzati nel report qui a destra. Se serve
-  altro, sono a disposizione!"
-- finish_report: SOLO il report professionale: titoli, dati, tabelle.
-  Niente conversazione, niente emoji, niente saluti, niente domande.
-  Deve sembrare scritto da un analista professionista.
-
-Rispondi in italiano.`;
-
-    return sys;
+  function buildSystemPromptString(): string {
+    return buildSystemPrompt({
+      data: today,
+      numFatture: plainFatture.length,
+      workspaceStato: buildWorkspaceState(),
+      pianoCorrente: plan || undefined,
+    });
   }
 
   const tools = {
@@ -447,7 +371,7 @@ Rispondi in italiano.`;
     },
 
     aggregate_products: {
-      description: 'Aggrega tutte le righe di dettaglio: prodotti unici con quantità totale, peso estratto automaticamente dalla descrizione, e suddivisione per fornitore.',
+      description: 'Aggrega TUTTE le righe di dettaglio in una singola chiamata: prodotti unici con quantità totale, peso estratto automaticamente dalla descrizione, e suddivisione per fornitore. Non serve chiamarlo più volte o paginare — restituisce tutto in una volta.',
       inputSchema: z.object({
         search: z.string().optional().describe('Filtra descrizione prodotto (parziale)'),
         cedente: z.string().optional().describe('Filtra fornitore (parziale)'),
@@ -538,18 +462,31 @@ Rispondi in italiano.`;
     },
 
     group_similar_products: {
-      description: 'Raggruppa prodotti simili (stesso prodotto in formati/packaging diversi) usando il task model. Chiama in loop incrementando startIndex finché done=true.',
+      description: 'Raggruppa prodotti simili (stesso prodotto in formati/packaging diversi) usando il task model. Chiama in loop incrementando startIndex finché done=true. Il batchSize viene calcolato automaticamente in base al contesto disponibile — non serve ridurlo.',
       inputSchema: z.object({
         outputTableId: z.string().describe('ID della tabella workspace da creare/aggiornare'),
         outputTitle: z.string().describe('Titolo della tabella'),
         startIndex: z.number().int().min(0).default(0).describe('Indice di partenza nel risultato di aggregate_products'),
-        batchSize: z.number().int().min(1).max(150).default(80).describe('Numero di prodotti da processare in questo batch'),
+        batchSize: z.number().int().min(1).max(500).default(150).describe("Massimo prodotti da processare in questo batch. Il sistema può aumentarlo se c'è contesto disponibile."),
         context: z.string().optional().describe('Contesto aggiuntivo per il raggruppamento'),
       }),
       execute: async (args: { outputTableId: string; outputTitle: string; startIndex: number; batchSize: number; context?: string }) => {
         if (!lastAggregateResult) return { error: 'Chiama prima aggregate_products' };
 
-        const batch = lastAggregateResult.slice(args.startIndex, args.startIndex + args.batchSize);
+        // Auto-scale batch size based on available context window
+        let effectiveBatchSize = args.batchSize;
+        if (contextWindow > 0 && lastAggregateResult.length > 0) {
+          const sample = lastAggregateResult[args.startIndex] ?? lastAggregateResult[0];
+          const tokensPerProduct = Math.ceil(JSON.stringify(sample).length / 3.5);
+          const maxTokensForBatch = Math.floor(contextWindow * 0.6);
+          const maxByContext = Math.max(50, Math.floor(maxTokensForBatch / tokensPerProduct));
+          effectiveBatchSize = Math.min(
+            lastAggregateResult.length - args.startIndex,
+            Math.max(effectiveBatchSize, maxByContext)
+          );
+        }
+
+        const batch = lastAggregateResult.slice(args.startIndex, args.startIndex + effectiveBatchSize);
         if (batch.length === 0) {
           return { done: true, processedInBatch: 0, groupsInBatch: 0, totalRowsInTable: workspace.get(args.outputTableId)?.rows.length ?? 0, nextStartIndex: args.startIndex, message: 'Batch vuoto — tutti i prodotti processati.' };
         }
@@ -865,7 +802,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
     },
 
     chat_response: {
-      description: 'Invia un messaggio di risposta all\'utente nella chat. Chiamalo insieme a finish_report per dare un riscontro conversazionale. Deve essere breve (2-3 frasi max) e NON deve ripetere informazioni già presenti nel report.',
+      description: 'Invia un messaggio conversazionale all\'utente nella chat. Puoi chiamarlo all\'inizio dell\'analisi per confermare la richiesta (es. "Ho capito, analizzo le fatture del Q1 2021"), oppure insieme a finish_report alla fine. Deve essere breve (1-2 frasi max) e NON deve ripetere informazioni già presenti nel report.',
       inputSchema: z.object({
         message: z.string().describe('Il messaggio per l\'utente. Breve, caloroso, professionale. Non ripetere dati del report.'),
       }),
@@ -877,7 +814,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
     },
 
     finish_report: {
-      description: 'Consegna il report finale professionale. Solo dati, nessuna conversazione. Nessuna emoji, nessuna domanda, nessun saluto. Usa "table_ref" per referenziare tabelle workspace — NON riprodurre i dati.',
+      description: 'Consegna il report finale professionale che un commercialista darebbe a un cliente. SOLO dati, titoli, tabelle, numeri. MAI conversazione, MAI emoji, MAI saluti, MAI domande, MAI ringraziamenti. Usa "table_ref" per referenziare tabelle workspace — NON riprodurre i dati. Se non c\'è analisi da riportare, non chiamare questo tool.',
       inputSchema: z.object({
         blocks: reportBlocksSchema,
       }),
@@ -915,7 +852,7 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
   for (let phase = 0; phase < 8; phase++) {
     const result = await generateText({
       model: orchestratorModel,
-      system: buildSystemPrompt(),
+      system: buildSystemPromptString(),
       messages,
       tools,
       toolChoice: 'auto',
@@ -924,7 +861,9 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
       abortSignal,
       onStepFinish: (step) => {
         for (const tc of (step.toolCalls as Array<{ toolName: string }> | undefined) ?? []) {
-          if (tc.toolName !== 'finish_report' && tc.toolName !== 'chat_response') {
+          if (tc.toolName === 'chat_response') continue;
+          if (tc.toolName !== 'finish_report') {
+            analysisStarted = true;
             onProgress(friendlyToolName(tc.toolName));
           }
         }
@@ -933,20 +872,36 @@ Rispondi SOLO JSON (no markdown): [{"canonicalName":"...","unit":"KG","totalWeig
 
     messages = [...messages, ...sanitizeModelMessages(result.response.messages as ModelMessage[])];
 
+    // Se il modello ha risposto senza chiamare alcun tool, è conversazione pura — esci
+    // (chat_response da solo è l'acknowledgment iniziale, non interrompe)
+    if (!result.toolCalls || result.toolCalls.length === 0) break;
+
     if (capturedBlocks) break;
 
-    // Context compression
+    // Context compression — preserva i dati analizzati, comprime solo la conversazione
     if (contextWindow > 0 && estimateTokens(messages) > contextWindow * 0.75) {
       onProgress('Comprimo il contesto per ottimizzare la memoria...');
-      const summary = await compressContext(messages, plan, config, abortSignal);
-      plan = plan ? `${plan}\n\n[Fase ${phase + 1}]\n${summary}` : summary;
+      const wsSnapshot = buildWorkspaceSnapshot();
+      const aggregateInfo = lastAggregateResult
+        ? `Ultima aggregazione: ${lastAggregateResult.length} prodotti unici`
+        : 'Nessuna aggregazione effettuata';
+      const summary = await compressContext(messages, plan, wsSnapshot, config, abortSignal);
+      plan = `[DATI ANALIZZATI - preservati]\n${wsSnapshot}\n\n${aggregateInfo}\n\n${plan ? `${plan}\n\n` : ''}[Fase ${phase + 1}]\n${summary}`;
       messages = [{ role: 'user', content: originalPrompt }];
       onProgress('Contesto ottimizzato, proseguo con l\'analisi...');
     }
   }
 
-  // Fallback: if finish_report was never called but the model produced text
+  // Fallback: if finish_report was never called but the model ran analysis tools
   if (!capturedBlocks || (capturedBlocks as ReportBlock[]).length === 0) {
+    if (!analysisStarted) {
+      // Conversazione pura senza analisi — non creare report fittizi
+      const lastAssistant = messages.filter(m => m.role === 'assistant').pop();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const text = lastAssistant ? (Array.isArray(lastAssistant.content) ? (lastAssistant.content as any[]).filter(c => c.type === 'text').map((c: { text: string }) => c.text).join(' ') : String(lastAssistant.content)) : '';
+      return { report: null as unknown as Report, messages: sanitizeModelMessages(messages), conversationalText: text };
+    }
+
     const lastMessages = messages.filter(m => m.role === 'assistant');
     const text = lastMessages
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

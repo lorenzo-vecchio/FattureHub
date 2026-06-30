@@ -4,12 +4,14 @@
   import AiChatInput from './AiChatInput.svelte';
   import type { ChatMessage } from './ai-chat-store.svelte';
   import type { ProjectMeta } from '$lib/projects';
+  import type { AiConfig } from '$lib/ai-config';
 
   let {
     messages,
     inputValue,
     isProcessing,
     contextProjects,
+    config = null,
     onsend,
     onstop,
     onInputChange,
@@ -20,6 +22,7 @@
     inputValue: string;
     isProcessing: boolean;
     contextProjects: ProjectMeta[];
+    config?: AiConfig | null;
     onsend: () => void;
     onstop: () => void;
     onInputChange: (v: string) => void;
@@ -30,7 +33,7 @@
 
 <div class="flex h-full flex-col bg-background">
   <div class="flex-1 min-h-0 overflow-hidden">
-    <AiChatMessages {messages} {contextProjects} />
+    <AiChatMessages {messages} {contextProjects} {config} />
   </div>
 
   <AiChatContextBar

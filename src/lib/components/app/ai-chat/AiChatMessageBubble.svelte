@@ -1,24 +1,70 @@
 <script lang="ts">
   import type { ChatMessage } from './ai-chat-store.svelte';
+  import type { AiConfig } from '$lib/ai-config';
   import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '$lib/components/ui/accordion';
-  import { ChevronRight, Loader, Sparkles, AlertCircle } from 'lucide-svelte';
+  import { ChevronRight, Loader, Sparkles, AlertCircle, Lightbulb } from 'lucide-svelte';
   import { marked } from 'marked';
+  import { generateCuriosity } from '$lib/ai-curiosity';
 
   marked.setOptions({ breaks: true, gfm: true });
 
   let {
     message,
+    config = null,
   }: {
     message: ChatMessage;
+    config?: AiConfig | null;
   } = $props();
 
   let progressOpen = $state(false);
+  let curiosities = $state<string[]>([]);
+  let loadingCuriosity = $state(false);
+  let curiosityTimer: ReturnType<typeof setTimeout> | undefined;
 
   let latestStep = $derived(
     message.progressSteps && message.progressSteps.length > 0
       ? message.progressSteps[message.progressSteps.length - 1]
       : ''
   );
+
+  $effect(() => {
+    if (!message.isProcessing || !config?.showCuriosities || !config.enabled) {
+      curiosities = [];
+      clearTimeout(curiosityTimer);
+      return;
+    }
+
+    const startTime = Date.now();
+
+    async function maybeFetchCuriosity() {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 5000) {
+        // First curiosity after 5 seconds (la chiamata AI aggiunge altri 2-5s)
+        curiosityTimer = setTimeout(maybeFetchCuriosity, 5000 - elapsed);
+        return;
+      }
+
+      loadingCuriosity = true;
+      try {
+        const fact = await generateCuriosity(config!);
+        // Sostituisci la curiosità precedente, non aggiungerla
+        curiosities = [fact];
+      } catch {
+        // Ignore errors
+      } finally {
+        loadingCuriosity = false;
+      }
+
+      // Next curiosity after 25 seconds
+      curiosityTimer = setTimeout(maybeFetchCuriosity, 25000);
+    }
+
+    curiosityTimer = setTimeout(maybeFetchCuriosity, 5000);
+
+    return () => {
+      clearTimeout(curiosityTimer);
+    };
+  });
 </script>
 
 {#if message.role === 'user'}
@@ -34,7 +80,7 @@
         <div class="flex h-6 w-6 items-center justify-center rounded-full bg-muted">
           <Sparkles class="h-3.5 w-3.5 text-muted-foreground" />
         </div>
-        <span class="text-xs font-medium text-muted-foreground">Assistente AI</span>
+        <span class="text-xs font-medium text-muted-foreground">AI</span>
       </div>
 
       {#if message.progressSteps && message.progressSteps.length > 0}
@@ -68,6 +114,15 @@
             </AccordionContent>
           </AccordionItem>
         </Accordion>
+      {/if}
+
+      {#if curiosities.length > 0}
+        <div class="pt-1">
+          <div class="flex items-start gap-2 rounded-md border border-dashed border-muted-foreground/20 bg-muted/20 px-3 py-2">
+            <Lightbulb class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+            <p class="text-xs leading-relaxed text-muted-foreground">Lo sapevi che: {curiosities[curiosities.length - 1]}</p>
+          </div>
+        </div>
       {/if}
 
       {#if message.error}

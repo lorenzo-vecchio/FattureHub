@@ -10,4 +10,15 @@ declare global {
 	}
 }
 
+// Allow raw imports of .md files (Vite ?raw)
+declare module '*?raw' {
+	const content: string;
+	export default content;
+}
+
+declare module '*.md?raw' {
+	const content: string;
+	export default content;
+}
+
 export {};

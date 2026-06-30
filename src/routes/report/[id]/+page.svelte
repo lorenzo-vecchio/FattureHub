@@ -46,7 +46,7 @@
         <Download class="mr-1 h-3.5 w-3.5" />
         Scarica DOCX
       </Button>
-      <Button size="sm" class="h-8 text-xs" onclick={() => goto('/home/report')}>
+      <Button size="sm" class="h-8 text-xs" onclick={() => report && goto(`/ai?report=${report.id}`)}>
         <Sparkles class="mr-1 h-3.5 w-3.5" />
         Apri con AI
       </Button>

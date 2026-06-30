@@ -3,13 +3,16 @@
   import { Sparkles } from 'lucide-svelte';
   import type { ChatMessage } from './ai-chat-store.svelte';
   import type { ProjectMeta } from '$lib/projects';
+  import type { AiConfig } from '$lib/ai-config';
 
   let {
     messages,
     contextProjects,
+    config = null,
   }: {
     messages: ChatMessage[];
     contextProjects: ProjectMeta[];
+    config?: AiConfig | null;
   } = $props();
 
   let container = $state<HTMLDivElement | undefined>(undefined);
@@ -57,7 +60,7 @@
   {:else}
     <div class="flex flex-col gap-4 px-4 py-4">
       {#each messages as message (message.id)}
-        <AiChatMessageBubble {message} />
+        <AiChatMessageBubble {message} {config} />
       {/each}
     </div>
   {/if}

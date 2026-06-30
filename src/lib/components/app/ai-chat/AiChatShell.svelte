@@ -92,6 +92,7 @@
           {inputValue}
           {isProcessing}
           {contextProjects}
+          {config}
           {onaddcontext}
           {onremovecontext}
           onsend={onsend}
