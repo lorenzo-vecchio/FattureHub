@@ -6,7 +6,12 @@ export type AvailableModel = {
   reasoning: boolean;
 };
 
-function buildModelsUrl(endpoint: string): string {
+function buildModelsUrl(endpoint: string, provider: AiConfig['provider']): string {
+  // Ollama uses /api/tags (not /v1/models) for listing installed models
+  if (provider === 'ollama') {
+    const base = endpoint.replace(/\/+$/, '').replace(/\/v1\/?$/, '');
+    return `${base}/api/tags`;
+  }
   return `${endpoint.replace(/\/+$/, '')}/models`;
 }
 
@@ -17,6 +22,10 @@ function isReasoningModel(provider: AiConfig['provider'], modelId: string): bool
     return normalized.startsWith('claude-');
   }
 
+  if (provider === 'ollama') {
+    return normalized.includes('reasoning') || normalized.startsWith('deepseek-r');
+  }
+
   return /^(gpt-5|o1|o3|o4)/.test(normalized) || normalized.includes('reasoning');
 }
 
@@ -24,8 +33,22 @@ function getModelLabel(provider: AiConfig['provider'], modelId: string): string 
   return isReasoningModel(provider, modelId) ? `${modelId} · reasoning` : modelId;
 }
 
-function extractModelIds(payload: unknown): string[] {
+function extractModelIds(payload: unknown, provider: AiConfig['provider']): string[] {
   if (!payload || typeof payload !== 'object') return [];
+
+  // Ollama /api/tags: { "models": [{ "name": "llama3.2:latest", ... }] }
+  if (provider === 'ollama') {
+    const models = (payload as Record<string, unknown>).models;
+    if (!Array.isArray(models)) return [];
+    return models
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const name = (item as Record<string, unknown>).name;
+        return typeof name === 'string' ? name.trim() : null;
+      })
+      .filter((id): id is string => Boolean(id));
+  }
+
   const data = (payload as { data?: unknown }).data;
   if (!Array.isArray(data)) return [];
 
@@ -45,18 +68,25 @@ export function suggestDefaultModel(models: AvailableModel[]): string {
 
 export async function fetchAvailableModels(config: Pick<AiConfig, 'provider' | 'endpoint' | 'apiKey'>): Promise<AvailableModel[]> {
   const endpoint = config.endpoint.trim();
-  const apiKey = config.apiKey.trim();
-  if (!endpoint || !apiKey) return [];
+  if (!endpoint) return [];
 
-  const response = await tauriFetch(buildModelsUrl(endpoint), {
+  // Ollama doesn't require an API key
+  if (config.provider !== 'ollama') {
+    const apiKey = config.apiKey.trim();
+    if (!apiKey) return [];
+  }
+
+  const response = await tauriFetch(buildModelsUrl(endpoint, config.provider), {
     headers: config.provider === 'anthropic'
       ? {
-          'x-api-key': apiKey,
+          'x-api-key': config.apiKey.trim(),
           'anthropic-version': '2023-06-01',
         }
-      : {
-          Authorization: `Bearer ${apiKey}`,
-        },
+      : config.provider === 'ollama'
+        ? {}
+        : {
+            Authorization: `Bearer ${config.apiKey.trim()}`,
+          },
   });
 
   if (!response.ok) {
@@ -65,7 +95,7 @@ export async function fetchAvailableModels(config: Pick<AiConfig, 'provider' | '
   }
 
   const payload = await response.json().catch(() => null);
-  const uniqueIds = Array.from(new Set(extractModelIds(payload))).sort((a, b) => a.localeCompare(b, 'it'));
+  const uniqueIds = Array.from(new Set(extractModelIds(payload, config.provider))).sort((a, b) => a.localeCompare(b, 'it'));
 
   return uniqueIds.map((id) => ({
     id,

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getVersion } from '@tauri-apps/api/app';
-  import { defaultAiConfig, loadAiConfig, saveAiConfig, type AiConfig } from '$lib/ai-config';
+  import { defaultAiConfig, loadAiConfig, saveAiConfig, switchProvider, syncToProviders, type AiConfig } from '$lib/ai-config';
   import { fetchAvailableModels, suggestDefaultModel, type AvailableModel } from '$lib/ai-models';
   import { Separator } from '$lib/components/ui/separator';
   import * as Sheet from '$lib/components/ui/sheet';
@@ -57,10 +57,10 @@
     }
 
     const endpoint = aiConfig.endpoint.trim();
-    const apiKey = aiConfig.apiKey.trim();
     const provider = aiConfig.provider;
 
-    if (!endpoint || !apiKey) {
+    // Ollama doesn't require an API key
+    if (!endpoint || (provider !== 'ollama' && !aiConfig.apiKey.trim())) {
       availableModels = [];
       modelError = null;
       modelLoading = false;
@@ -68,7 +68,7 @@
       return;
     }
 
-    const fetchKey = `${provider}|${endpoint}|${apiKey}`;
+    const fetchKey = `${provider}|${endpoint}|${aiConfig.apiKey}`;
     if (fetchKey === lastModelFetchKey) return;
 
     modelLoading = true;
@@ -76,7 +76,7 @@
 
     const timer = setTimeout(async () => {
       try {
-        const models = await fetchAvailableModels({ provider, endpoint, apiKey });
+        const models = await fetchAvailableModels({ provider, endpoint, apiKey: aiConfig.apiKey });
         lastModelFetchKey = fetchKey;
         availableModels = models;
 
@@ -100,6 +100,7 @@
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
   async function handleAiSave() {
+    syncToProviders(aiConfig);
     await saveAiConfig(aiConfig);
     onAiConfigChange?.(aiConfig);
     saved = true;
@@ -175,9 +176,20 @@
             {modelLoading}
             {modelError}
             {saved}
-            setProvider={(provider) => { aiConfig = { ...aiConfig, provider }; }}
+            setProvider={(provider) => { switchProvider(aiConfig, provider); }}
             updateEndpoint={(value) => { aiConfig = { ...aiConfig, endpoint: value }; }}
             updateApiKey={(value) => { aiConfig = { ...aiConfig, apiKey: value }; }}
+            updateOllamaPort={(value) => {
+              const port = parseInt(value) || 11434;
+              aiConfig = {
+                ...aiConfig,
+                providers: {
+                  ...aiConfig.providers,
+                  ollama: { ...aiConfig.providers.ollama, port },
+                },
+                endpoint: `http://localhost:${port}/v1`,
+              };
+            }}
             updateModel={(value) => { aiConfig = { ...aiConfig, model: value }; }}
             updateOrchestratorModel={(value) => { aiConfig = { ...aiConfig, orchestratorModel: value }; }}
             updateOrchestratorReasoning={(value) => { aiConfig = { ...aiConfig, orchestratorReasoning: value }; }}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { OLLAMA_DEFAULT_PORT } from '$lib/ai-config';
   import type { AiConfig } from '$lib/ai-config';
   import type { AvailableModel } from '$lib/ai-models';
   import { Button } from '$lib/components/ui/button';
@@ -15,6 +16,7 @@
     setProvider,
     updateEndpoint,
     updateApiKey,
+    updateOllamaPort,
     updateModel,
     updateOrchestratorModel,
     updateOrchestratorReasoning,
@@ -28,9 +30,10 @@
     modelLoading?: boolean;
     modelError?: string | null;
     saved: boolean;
-    setProvider: (provider: 'openai' | 'anthropic') => void;
+    setProvider: (provider: 'openai' | 'anthropic' | 'ollama') => void;
     updateEndpoint: (value: string) => void;
     updateApiKey: (value: string) => void;
+    updateOllamaPort: (value: string) => void;
     updateModel: (value: string) => void;
     updateOrchestratorModel: (value: string) => void;
     updateOrchestratorReasoning: (value: boolean) => void;
@@ -45,6 +48,10 @@
   }
 
   function normalizeContextWindow(value: string): string {
+    return value.replace(/[^0-9]/g, '');
+  }
+
+  function normalizePort(value: string): string {
     return value.replace(/[^0-9]/g, '');
   }
 
@@ -79,31 +86,55 @@
       >
         Anthropic
       </Button>
+      <Button
+        variant={aiConfig.provider === 'ollama' ? 'default' : 'outline'}
+        size="sm"
+        class="flex-1 text-xs"
+        onclick={() => setProvider('ollama')}
+      >
+        Ollama
+      </Button>
     </div>
   </div>
 
-  <div class="space-y-1.5">
-    <Label class="text-xs" for="ai-endpoint">Endpoint (opzionale)</Label>
-    <Input
-      id="ai-endpoint"
-      class="h-7 text-xs"
-      placeholder="https://api.openai.com/v1"
-      value={aiConfig.endpoint}
-      oninput={(e) => updateEndpoint((e.target as HTMLInputElement).value)}
-    />
-  </div>
+  {#if aiConfig.provider === 'ollama'}
+    <div class="space-y-1.5">
+      <Label class="text-xs" for="ai-ollama-port">Porta Ollama</Label>
+      <Input
+        id="ai-ollama-port"
+        type="text"
+        inputmode="numeric"
+        class="h-7 text-xs font-mono"
+        placeholder={String(OLLAMA_DEFAULT_PORT)}
+        value={String(aiConfig.providers.ollama.port)}
+        oninput={(e) => updateOllamaPort(normalizePort((e.target as HTMLInputElement).value))}
+      />
+      <p class="text-[11px] text-muted-foreground">localhost:{aiConfig.providers.ollama.port || OLLAMA_DEFAULT_PORT}/v1</p>
+    </div>
+  {:else}
+    <div class="space-y-1.5">
+      <Label class="text-xs" for="ai-endpoint">Endpoint (opzionale)</Label>
+      <Input
+        id="ai-endpoint"
+        class="h-7 text-xs"
+        placeholder="https://api.openai.com/v1"
+        value={aiConfig.endpoint}
+        oninput={(e) => updateEndpoint((e.target as HTMLInputElement).value)}
+      />
+    </div>
 
-  <div class="space-y-1.5">
-    <Label class="text-xs" for="ai-apikey">API Key</Label>
-    <Input
-      id="ai-apikey"
-      type="password"
-      class="h-7 text-xs font-mono"
-      placeholder="sk-..."
-      value={aiConfig.apiKey}
-      oninput={(e) => updateApiKey((e.target as HTMLInputElement).value)}
-    />
-  </div>
+    <div class="space-y-1.5">
+      <Label class="text-xs" for="ai-apikey">API Key</Label>
+      <Input
+        id="ai-apikey"
+        type="password"
+        class="h-7 text-xs font-mono"
+        placeholder="sk-..."
+        value={aiConfig.apiKey}
+        oninput={(e) => updateApiKey((e.target as HTMLInputElement).value)}
+      />
+    </div>
+  {/if}
 
   <div class="space-y-1.5">
     <Label class="text-xs" for="ai-model">Modello di default</Label>
@@ -126,7 +157,7 @@
       <Input
         id="ai-model"
         class="h-7 text-xs"
-        placeholder="gpt-4o"
+        placeholder="llama3.2"
         value={aiConfig.model}
         oninput={(e) => updateModel((e.target as HTMLInputElement).value)}
       />

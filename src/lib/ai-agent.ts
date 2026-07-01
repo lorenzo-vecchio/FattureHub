@@ -77,6 +77,10 @@ function buildProviderOptions(config: AiConfig, role: 'orchestrator' | 'task'): 
     };
   }
 
+  if (config.provider === 'ollama') {
+    return undefined; // Ollama's OpenAI compat layer doesn't support reasoning options
+  }
+
   return {
     openai: {
       systemMessageMode: 'system',
@@ -134,6 +138,18 @@ function buildModel(config: AiConfig, role: 'orchestrator' | 'task' = 'orchestra
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (provider as any)(modelName);
   }
+
+  if (config.provider === 'ollama') {
+    // Ollama is OpenAI-compatible but needs no API key
+    const provider = createOpenAI({
+      apiKey: '',
+      baseURL: config.endpoint,
+      fetch: tauriFetch as typeof fetch,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (provider as any).chat(modelName);
+  }
+
   const fetchFn = isDeepSeekConfig(config)
     ? wrapFetchForDeepSeek(tauriFetch as typeof fetch)
     : (tauriFetch as typeof fetch);
